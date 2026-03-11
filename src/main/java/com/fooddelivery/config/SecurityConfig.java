@@ -1,4 +1,4 @@
-package com.fooddelivery.auth.config;
+package com.fooddelivery.config;
 
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
