@@ -2,7 +2,6 @@
 
 Backend сервис для платформы доставки еды.
 Проект реализован на **Java + Spring Boot** и предоставляет API для работы с пользователями, кафе, каталогом еды и заказами.
-
 ---
 
 # 📦 Технологический стек
@@ -12,6 +11,8 @@ Backend сервис для платформы доставки еды.
 * **Spring Security**
 * **Spring Data JPA**
 * **PostgreSQL**
+* **JWT Authentication**
+* **Maven**
 ---
 
 # 🏗 Архитектура проекта
@@ -123,6 +124,139 @@ http://localhost:8080
 
 ---
 
+# 🧩 Реализация Auth Module
+## User Entity
+Основная таблица пользователей.
+```
+@Entity
+@Table(name = "users")
+public class User {
+
+    @Id
+    @GeneratedValue
+    private UUID id;
+
+    @Column(unique = true, nullable = false)
+    private String email;
+
+    @Column(unique = true)
+    private String phone;
+
+    @Column(name = "password_hash", nullable = false)
+    private String passwordHash;
+
+    @Enumerated(EnumType.STRING)
+    private Role role;
+
+    private UUID cafeId;
+
+    private boolean isActive = true;
+
+    private boolean forcePasswordChange = false;
+
+    private LocalDateTime createdAt;
+
+    private LocalDateTime updatedAt;
+}
+```
+Особенности:
+* UUID используется как primary key
+* email уникален
+* пароль хранится в виде BCrypt hash
+* поддерживаются роли пользователей
+
+## Role Enum
+
+Определяет роли пользователей.
+```
+public enum Role {
+SUPER_ADMIN,
+CAFE_ADMIN,
+CLIENT
+}
+```
+
+## UserRepository
+
+Репозиторий для работы с пользователями.
+```
+public interface UserRepository extends JpaRepository<User, UUID> {
+
+    Optional<User> findByEmail(String email);
+
+    Optional<User> findByPhone(String phone);
+
+    boolean existsByEmail(String email);
+
+}
+```
+Возможности:
+
+* поиск пользователя по email
+
+* проверка существования email
+
+* стандартные CRUD операции
+
+## CustomUserDetailsService
+
+Интеграция пользователей с Spring Security.
+```
+public class CustomUserDetailsService implements UserDetailsService {
+
+    private final UserRepository userRepository;
+
+    public CustomUserDetailsService(UserRepository userRepository) {
+        this.userRepository = userRepository;
+    }
+
+    @Override
+    public UserDetails loadUserByUsername(String email) {
+
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new UsernameNotFoundException("User not found"));
+
+        return new org.springframework.security.core.userdetails.User(
+                user.getEmail(),
+                user.getPasswordHash(),
+                List.of(new SimpleGrantedAuthority(user.getRole().name()))
+        );
+    }
+}
+```
+Назначение:
+
+* загрузка пользователя из базы данных
+
+* передача данных в Spring Security
+
+* установка ролей пользователя
+
+## Security Configuration
+
+Конфигурация шифрования паролей.
+```
+@Configuration
+public class SecurityConfig {
+
+    @Bean
+    public BCryptPasswordEncoder passwordEncoder() {
+        return new BCryptPasswordEncoder(12);
+    }
+
+}
+```
+Особенности:
+
+* используется BCrypt
+
+* cost factor = 12
+
+* безопасное хранение паролей
+---
+
+
+
 # 📁 Структура проекта
 
 ```
@@ -133,12 +267,16 @@ food-delivery-backend
 │   │   ├── java
 │   │   │   └── com.fooddelivery
 │   │   │        ├── auth
+│   │   │        │    ├── entity
+│   │   │        │    ├── repository
+│   │   │        │    └── security
+│   │   │        │
 │   │   │        ├── catalog
 │   │   │        ├── orders
 │   │   │        └── config
 │   │   │
 │   │   └── resources
-│   │        ├── application.properties
+│   │        └── application.properties
 │
 ├── src/test
 │
@@ -155,19 +293,6 @@ food-delivery-backend
 * Auth module
 * User management
 * PostgreSQL setup
-* 
-### Week 2
-
-* Cafe management
-* Menu CRUD
-* Category management
-
-### Week 3
-
-* Orders
-* Payments
-* Notifications
-
 ---
 
 # 👨‍💻 Автор
@@ -175,4 +300,4 @@ food-delivery-backend
 **Nureles Almazbekov**
 
 Java Backend Developer
-Spring Boot | PostgreSQL | Angular
+Spring Boot | PostgreSQL
