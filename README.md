@@ -373,6 +373,103 @@ JWT используется для доступа к защищённым API.
 ```
 Authorization: Bearer ACCESS_TOKEN
 ```
+---
+# 🧩 Реализация Catalog Module
+
+Модуль Catalog отвечает за управление ресторанами и их меню.
+## Restaurant Entity
+```
+@Entity
+@Table(name = "restaurants")
+public class Restaurant {
+
+    @Id
+    @GeneratedValue
+    private UUID id;
+
+    private String name;
+
+    private String slug;
+
+    private String description;
+
+    private String address;
+
+    private String city;
+
+    private String logoUrl;
+
+    @Enumerated(EnumType.STRING)
+    private CuisineType cuisineType;
+
+    private BigDecimal minOrderAmount;
+
+    private Double deliveryZoneRadiusKm;
+
+    private boolean isActive = true;
+
+}
+```
+## CuisineType Enum
+```
+public enum CuisineType {
+
+    BURGERS,
+    PIZZA,
+    SUSHI,
+    ASIAN,
+    LOCAL,
+    COFFEE,
+    OTHER
+
+}
+```
+## RestaurantRepository
+```
+public interface RestaurantRepository
+extends JpaRepository<Restaurant, UUID> {
+}
+```
+---
+# 🍽 Restaurant API
+Получить список ресторанов
+```
+GET /restaurants
+```
+Публичный endpoint.
+
+Возвращает список доступных ресторанов.
+
+---
+Создать ресторан
+```
+POST /admin/restaurants
+```
+Доступно только роли:
+
+* SUPER_ADMIN
+
+Пример запроса:
+```
+{
+"name": "Burger House",
+"description": "Лучшие бургеры",
+"address": "ул. Киевская 120",
+"city": "Bishkek",
+"cuisineType": "BURGERS",
+"minOrderAmount": 300,
+"deliveryZoneRadiusKm": 5
+}
+```
+Обновить ресторан
+```
+PUT /cafe/profile/{id}
+```
+Доступно роли:
+
+* CAFE_ADMIN
+
+Обновляет информацию о ресторане.
 
 ---
 # 📝 Документация API (Swagger / OpenAPI)
@@ -387,6 +484,12 @@ http://localhost:8080/swagger-ui.html
 ```
 http://localhost:8080/v3/api-docs
 ```
+Swagger автоматически документирует:
+* Auth API
+* Catalog API
+* DTO модели
+* HTTP ответы 
+* параметры запросов
 ---
 # 📁 Структура проекта
 
@@ -397,40 +500,27 @@ food-delivery-backend
 │   ├── main
 │   │   ├── java
 │   │   │   └── com.fooddelivery
+│   │   │
 │   │   │        ├── auth
 │   │   │        │    ├── controller
-│   │   │        │    │     └── AuthController
-│   │   │        │    │
 │   │   │        │    ├── service
-│   │   │        │    │     └── AuthService
-│   │   │        │    │
 │   │   │        │    ├── dto
-│   │   │        │    │     ├── RegisterRequest
-│   │   │        │    │     ├── LoginRequest
-│   │   │        │    │     ├── RefreshRequest
-│   │   │        │    │     └── AuthResponse
-│   │   │        │    │
 │   │   │        │    ├── entity
-│   │   │        │    │     └── User
-│   │   │        │    │
 │   │   │        │    ├── repository
-│   │   │        │    │     └── UserRepository
-│   │   │        │    │
 │   │   │        │    └── security
-│   │   │        │          ├── CustomUserDetailsService
-│   │   │        │          └── JwtService
 │   │   │        │
 │   │   │        ├── catalog
-│   │   │        │    ├── entity
-│   │   │        │    ├── repository
+│   │   │        │    ├── controller
 │   │   │        │    ├── service
-│   │   │        │    └── controller
+│   │   │        │    ├── dto
+│   │   │        │    ├── entity
+│   │   │        │    └── repository
 │   │   │        │
 │   │   │        ├── orders
-│   │   │        │    ├── entity
-│   │   │        │    ├── repository
+│   │   │        │    ├── controller
 │   │   │        │    ├── service
-│   │   │        │    └── controller
+│   │   │        │    ├── entity
+│   │   │        │    └── repository
 │   │   │        │
 │   │   │        └── config
 │   │   │             ├── SecurityConfig

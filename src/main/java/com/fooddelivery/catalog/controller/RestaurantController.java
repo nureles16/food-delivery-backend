@@ -1,0 +1,66 @@
+package com.fooddelivery.catalog.controller;
+
+import com.fooddelivery.catalog.dto.CreateRestaurantRequest;
+import com.fooddelivery.catalog.entity.Restaurant;
+import com.fooddelivery.catalog.service.RestaurantService;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.tags.Tag;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import jakarta.validation.Valid;
+import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
+import java.util.UUID;
+
+@RestController
+@RequestMapping
+@Tag(name = "Restaurants", description = "API для управления ресторанами")
+public class RestaurantController {
+
+    private final RestaurantService restaurantService;
+
+    public RestaurantController(RestaurantService restaurantService) {
+        this.restaurantService = restaurantService;
+    }
+
+    @Operation(
+            summary = "Получить список ресторанов",
+            description = "Публичный endpoint. Возвращает список активных ресторанов"
+    )
+    @ApiResponse(responseCode = "200", description = "Список ресторанов успешно получен")
+    @GetMapping("/restaurants")
+    public List<Restaurant> getRestaurants() {
+        return restaurantService.getAllRestaurants();
+    }
+
+    @Operation(
+            summary = "Создать ресторан",
+            description = "Создание ресторана (только SUPER_ADMIN)"
+    )
+    @ApiResponse(responseCode = "200", description = "Ресторан успешно создан")
+    @ApiResponse(responseCode = "400", description = "Ошибка валидации")
+    @PostMapping("/admin/restaurants")
+    public Restaurant createRestaurant(
+            @Valid @RequestBody CreateRestaurantRequest request) {
+
+        return restaurantService.createRestaurant(request);
+    }
+
+    @Operation(
+            summary = "Обновить ресторан",
+            description = "Обновление профиля ресторана (CAFE_ADMIN)"
+    )
+    @ApiResponse(responseCode = "200", description = "Ресторан успешно обновлен")
+    @ApiResponse(responseCode = "404", description = "Ресторан не найден")
+    @PutMapping("/cafe/profile/{id}")
+    public Restaurant updateRestaurant(
+
+            @Parameter(description = "ID ресторана", required = true)
+            @PathVariable UUID id,
+
+            @Valid @RequestBody CreateRestaurantRequest request) {
+
+        return restaurantService.updateRestaurant(id, request);
+    }
+}
