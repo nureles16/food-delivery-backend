@@ -255,8 +255,139 @@ public class SecurityConfig {
 * безопасное хранение паролей
 ---
 
+## Auth API
 
+Система аутентификации предоставляет REST API для регистрации, входа и обновления JWT токенов.
 
+### Register User
+
+Регистрация нового пользователя с ролью **CLIENT**.
+
+```
+POST /auth/register
+```
+
+Пример запроса:
+
+```json
+{
+  "email": "user@mail.com",
+  "password": "123456",
+  "phone": "+996555123456"
+}
+```
+
+Логика:
+
+* валидация email и пароля
+* проверка существования email
+* хэширование пароля через **BCrypt**
+* сохранение пользователя в базе данных
+* роль по умолчанию → **CLIENT**
+
+---
+
+### Login User
+
+Авторизация пользователя.
+
+```
+POST /auth/login
+```
+
+Пример запроса:
+
+```json
+{
+  "email": "user@mail.com",
+  "password": "123456"
+}
+```
+
+Ответ:
+
+```json
+{
+  "accessToken": "JWT_ACCESS_TOKEN",
+  "refreshToken": "JWT_REFRESH_TOKEN"
+}
+```
+
+Логика:
+
+* поиск пользователя по email
+* проверка пароля через BCrypt
+* генерация **JWT Access Token (15 минут)**
+* генерация **JWT Refresh Token (30 дней)**
+
+---
+
+### Refresh Token
+
+Обновление access token с помощью refresh token.
+
+```
+POST /auth/refresh
+```
+
+Пример запроса:
+
+```json
+{
+  "refreshToken": "JWT_REFRESH_TOKEN"
+}
+```
+
+Ответ:
+
+```json
+{
+  "accessToken": "NEW_ACCESS_TOKEN",
+  "refreshToken": "JWT_REFRESH_TOKEN"
+}
+```
+
+Логика:
+
+* извлечение email из refresh token
+* генерация нового **access token**
+* refresh token остаётся прежним
+
+---
+
+## JWT Configuration
+
+JWT используется для аутентификации пользователей.
+
+Особенности:
+
+* Access Token TTL → **15 минут**
+* Refresh Token TTL → **30 дней**
+* подпись токена через **HMAC SHA256**
+* токен содержит **email пользователя**
+
+JWT используется для доступа к защищённым API.
+
+Пример заголовка запроса:
+
+```
+Authorization: Bearer ACCESS_TOKEN
+```
+
+---
+# 📝 Документация API (Swagger / OpenAPI)
+
+Проект использует Springdoc OpenAPI для генерации интерактивной документации Swagger UI.
+
+После запуска приложения документация будет доступна по адресу:
+```
+http://localhost:8080/swagger-ui.html
+```
+или через стандартный OpenAPI endpoint:
+```
+http://localhost:8080/v3/api-docs
+```
+---
 # 📁 Структура проекта
 
 ```
@@ -267,13 +398,43 @@ food-delivery-backend
 │   │   ├── java
 │   │   │   └── com.fooddelivery
 │   │   │        ├── auth
+│   │   │        │    ├── controller
+│   │   │        │    │     └── AuthController
+│   │   │        │    │
+│   │   │        │    ├── service
+│   │   │        │    │     └── AuthService
+│   │   │        │    │
+│   │   │        │    ├── dto
+│   │   │        │    │     ├── RegisterRequest
+│   │   │        │    │     ├── LoginRequest
+│   │   │        │    │     ├── RefreshRequest
+│   │   │        │    │     └── AuthResponse
+│   │   │        │    │
 │   │   │        │    ├── entity
+│   │   │        │    │     └── User
+│   │   │        │    │
 │   │   │        │    ├── repository
+│   │   │        │    │     └── UserRepository
+│   │   │        │    │
 │   │   │        │    └── security
+│   │   │        │          ├── CustomUserDetailsService
+│   │   │        │          └── JwtService
 │   │   │        │
 │   │   │        ├── catalog
+│   │   │        │    ├── entity
+│   │   │        │    ├── repository
+│   │   │        │    ├── service
+│   │   │        │    └── controller
+│   │   │        │
 │   │   │        ├── orders
+│   │   │        │    ├── entity
+│   │   │        │    ├── repository
+│   │   │        │    ├── service
+│   │   │        │    └── controller
+│   │   │        │
 │   │   │        └── config
+│   │   │             ├── SecurityConfig
+│   │   │             └── OpenApiConfig
 │   │   │
 │   │   └── resources
 │   │        └── application.properties
@@ -284,15 +445,6 @@ food-delivery-backend
 └── README.md
 ```
 
----
-
-# 📌 Roadmap
-
-### Week 1
-
-* Auth module
-* User management
-* PostgreSQL setup
 ---
 
 # 👨‍💻 Автор

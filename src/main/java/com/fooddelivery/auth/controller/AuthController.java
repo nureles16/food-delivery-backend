@@ -1,0 +1,79 @@
+package com.fooddelivery.auth.controller;
+
+import com.fooddelivery.auth.dto.*;
+import com.fooddelivery.auth.service.AuthService;
+
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
+
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
+
+@Tag(name = "Auth", description = "API для регистрации, входа и обновления токена")
+@RestController
+@RequestMapping("/auth")
+public class AuthController {
+
+    private final AuthService authService;
+
+    public AuthController(AuthService authService) {
+        this.authService = authService;
+    }
+
+    @Operation(
+            summary = "Регистрация нового пользователя",
+            description = "Регистрирует нового клиента по email + пароль или phone",
+            responses = {
+                    @ApiResponse(responseCode = "200", description = "Успешная регистрация"),
+                    @ApiResponse(responseCode = "400", description = "Некорректные данные")
+            }
+    )
+    @PostMapping("/register")
+    public ResponseEntity<String> register(
+            @Valid @RequestBody RegisterRequest request) {
+
+        authService.register(request);
+
+        return ResponseEntity.ok("User registered successfully");
+    }
+
+    @Operation(
+            summary = "Вход пользователя",
+            description = "Проверяет email и пароль, возвращает JWT Access и Refresh токены",
+            responses = {
+                    @ApiResponse(responseCode = "200", description = "Успешный вход",
+                            content = @Content(schema = @Schema(implementation = AuthResponse.class))),
+                    @ApiResponse(responseCode = "401", description = "Неверные данные")
+            }
+    )
+    @PostMapping("/login")
+    public ResponseEntity<AuthResponse> login(
+            @Valid @RequestBody LoginRequest request) {
+
+        AuthResponse response = authService.login(request);
+
+        return ResponseEntity.ok(response);
+    }
+
+    @Operation(
+            summary = "Обновление Access токена",
+            description = "Возвращает новый Access Token по Refresh Token",
+            responses = {
+                    @ApiResponse(responseCode = "200", description = "Access Token обновлён",
+                            content = @Content(schema = @Schema(implementation = AuthResponse.class))),
+                    @ApiResponse(responseCode = "401", description = "Неверный Refresh Token")
+            }
+    )
+    @PostMapping("/refresh")
+    public ResponseEntity<AuthResponse> refresh(
+            @RequestBody RefreshRequest request) {
+
+        AuthResponse response = authService.refreshToken(request);
+
+        return ResponseEntity.ok(response);
+    }
+}
