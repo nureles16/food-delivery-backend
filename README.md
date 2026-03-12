@@ -525,6 +525,71 @@ PUT /cafe/profile/{id}
 Обновляет информацию о ресторане.
 
 ---
+# 🧩 Реализация Catalog Module
+
+Создана сущность для категорий меню ресторана
+```
+@Entity
+@Table(name = "menu_categories")
+public class MenuCategory {
+
+    @Id
+    @GeneratedValue
+    private UUID id;
+
+    @Column(nullable = false)
+    private UUID restaurantId;
+
+    @Column(nullable = false)
+    private String name;
+
+    private Integer position;
+
+    private boolean isActive = true;
+
+    private LocalDateTime createdAt;
+
+    private LocalDateTime updatedAt;
+}
+```
+Особенности:
+
+* UUID используется как primary key
+
+* restaurantId связывает категорию с рестораном
+
+* position позволяет сортировать категории
+
+* isActive — для активации/деактивации категории
+
+## MenuCategoryRepository
+
+Репозиторий для CRUD операций категорий меню:
+```
+public interface MenuCategoryRepository extends JpaRepository<MenuCategory, UUID> {
+
+    boolean existsByIdAndDishesIsEmpty(UUID id); // проверка перед удалением, если нет блюд
+}
+```
+## 🍽 MenuCategory API
+
+Эндпоинты для управления категориями меню ресторана
+```
+POST /cafe/menu/categories — Создать новую категорию меню (роль: CAFE_ADMIN)
+
+PUT /cafe/menu/categories/{id} — Обновить категорию меню (роль: CAFE_ADMIN)
+
+DELETE /cafe/menu/categories/{id} — Удалить категорию (только если нет блюд) (роль: CAFE_ADMIN)
+```
+Пример запроса POST
+```
+{
+"restaurantId": "uuid-ресторана",
+"name": "Burgers",
+"position": 1
+}
+```
+---
 # 📝 Документация API (Swagger / OpenAPI)
 
 Проект использует Springdoc OpenAPI для генерации интерактивной документации Swagger UI.
