@@ -8,6 +8,7 @@ import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import jakarta.validation.Valid;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -39,8 +40,9 @@ public class RestaurantController {
             description = "Создание ресторана (только SUPER_ADMIN)"
     )
     @ApiResponse(responseCode = "200", description = "Ресторан успешно создан")
-    @ApiResponse(responseCode = "400", description = "Ошибка валидации")
+    @ApiResponse(responseCode = "403", description = "Нет прав доступа")
     @PostMapping("/admin/restaurants")
+    @PreAuthorize("hasAuthority('SUPER_ADMIN')")
     public Restaurant createRestaurant(
             @Valid @RequestBody CreateRestaurantRequest request) {
 
@@ -53,7 +55,9 @@ public class RestaurantController {
     )
     @ApiResponse(responseCode = "200", description = "Ресторан успешно обновлен")
     @ApiResponse(responseCode = "404", description = "Ресторан не найден")
+    @ApiResponse(responseCode = "403", description = "Нет прав доступа")
     @PutMapping("/cafe/profile/{id}")
+    @PreAuthorize("hasAuthority('CAFE_ADMIN') or hasAuthority('SUPER_ADMIN')")
     public Restaurant updateRestaurant(
 
             @Parameter(description = "ID ресторана", required = true)

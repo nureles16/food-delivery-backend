@@ -202,6 +202,7 @@ public interface UserRepository extends JpaRepository<User, UUID> {
 
 Интеграция пользователей с Spring Security.
 ```
+@Service
 public class CustomUserDetailsService implements UserDetailsService {
 
     private final UserRepository userRepository;
@@ -211,10 +212,16 @@ public class CustomUserDetailsService implements UserDetailsService {
     }
 
     @Override
-    public UserDetails loadUserByUsername(String email) {
+    public UserDetails loadUserByUsername(String email) throws UsernameNotFoundException {
 
         User user = userRepository.findByEmail(email)
-                .orElseThrow(() -> new UsernameNotFoundException("User not found"));
+                .orElseThrow(() ->
+                        new UsernameNotFoundException("User not found with email: " + email)
+                );
+
+        if (!user.isActive()) {
+            throw new UsernameNotFoundException("User account is disabled");
+        }
 
         return new org.springframework.security.core.userdetails.User(
                 user.getEmail(),
@@ -225,18 +232,22 @@ public class CustomUserDetailsService implements UserDetailsService {
 }
 ```
 Назначение:
+* проверка активности пользователя
+
+* интеграция пользователей с Spring Security
+
+* установка ролей пользователя (SUPER_ADMIN, CAFE_ADMIN, CLIENT)
 
 * загрузка пользователя из базы данных
 
 * передача данных в Spring Security
-
-* установка ролей пользователя
 
 ## Security Configuration
 
 Конфигурация шифрования паролей.
 ```
 @Configuration
+@EnableMethodSecurity
 public class SecurityConfig {
 
     @Bean
@@ -244,15 +255,56 @@ public class SecurityConfig {
         return new BCryptPasswordEncoder(12);
     }
 
+    @Bean
+    public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
+
+        http
+                .csrf(AbstractHttpConfigurer::disable)
+                .authorizeHttpRequests(auth -> auth
+
+                        // публичные auth endpoints
+                        .requestMatchers("/auth/**").permitAll()
+
+                        // swagger
+                        .requestMatchers(
+                                "/v3/api-docs/**",
+                                "/swagger-ui/**",
+                                "/swagger-ui.html"
+                        ).permitAll()
+
+                        // публичный список ресторанов
+                        .requestMatchers("/restaurants").permitAll()
+
+                        // остальные endpoints требуют авторизацию
+                        .anyRequest().authenticated()
+                )
+
+                .httpBasic(AbstractHttpConfigurer::disable);
+
+        return http.build();
+    }
 }
 ```
 Особенности:
 
-* используется BCrypt
+* используется BCrypt для хэширования паролей
 
-* cost factor = 12
+* включена Method Security (@PreAuthorize)
 
-* безопасное хранение паролей
+* публичные endpoints: /auth/** ,/restaurants
+
+* Swagger документация
+
+* остальные API требуют JWT авторизации
+
+* доступ к методам контроллеров ограничивается ролями пользователей
+
+Пример:
+```
+@PreAuthorize("hasAuthority('SUPER_ADMIN')")
+```
+Используется для ограничения доступа к административным операциям.
+
 ---
 
 ## Auth API
@@ -468,6 +520,7 @@ PUT /cafe/profile/{id}
 Доступно роли:
 
 * CAFE_ADMIN
+* SUPER_ADMIN
 
 Обновляет информацию о ресторане.
 
