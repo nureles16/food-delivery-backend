@@ -663,6 +663,158 @@ GET	/cafe/menu/items/category/{categoryId}	PUBLIC	Получить все поз
 }
 ```
 ---
+
+# 🍔 Order Module (Заказы)
+
+Модуль orders отвечает за создание, управление и отслеживание заказов пользователей, а также работу администраторов кафе.
+
+## Order Entity
+Сущность заказа:
+```
+@Entity
+@Table(name = "orders")
+public class Order {
+
+    @Id
+    @GeneratedValue
+    private UUID id;
+
+    private String orderNumber;
+
+    private UUID clientId;
+
+    private UUID restaurantId;
+
+    @Column(columnDefinition = "TEXT")
+    private String items; // JSON snapshot заказанных блюд
+
+    private BigDecimal subtotal;
+
+    private BigDecimal deliveryFee;
+
+    private BigDecimal totalAmount;
+
+    @Enumerated(EnumType.STRING)
+    private OrderStatus status;
+
+    private String deliveryAddress;
+
+    private LocalDateTime createdAt;
+
+    private LocalDateTime updatedAt;
+}
+```
+Особенности:
+
+* UUID используется как primary key
+
+* items хранит snapshot заказанных позиций меню
+
+* subtotal, deliveryFee, totalAmount — расчёт стоимости
+
+* статус заказа (PENDING, CONFIRMED, CANCELLED)
+
+* связь с клиентом и рестораном через UUID
+
+## OrderStatus Enum
+```
+public enum OrderStatus {
+PENDING,     // заказ создан, ожидает подтверждения
+CONFIRMED,   // заказ подтверждён кафе
+CANCELLED    // заказ отменён клиентом
+}
+```
+## OrderRepository
+
+Репозиторий для работы с заказами:
+```
+public interface OrderRepository extends JpaRepository<Order, UUID> {
+
+    List<Order> findByClientId(UUID clientId);
+
+    List<Order> findByRestaurantId(UUID restaurantId);
+}
+```
+## DTO для создания заказа
+```
+public class OrderItemDto {
+private UUID itemId;
+private int quantity;
+}
+
+public class CreateOrderRequest {
+private UUID restaurantId;
+private List<OrderItemDto> items;
+private String deliveryAddress;
+}
+```
+## OrderService
+
+Сервис реализует бизнес-логику:
+
+* создание заказа
+
+* получение истории заказов клиента
+
+* получение заказов ресторана
+
+* подтверждение заказа кафе
+
+* отмена заказа клиентом
+
+Методы:
+```
+createOrder(CreateOrderRequest request, UUID clientId)
+
+getClientOrders(UUID clientId)
+
+getRestaurantOrders(UUID restaurantId)
+
+confirmOrder(UUID orderId)
+
+cancelOrder(UUID orderId)
+```
+## OrderController
+
+REST API для работы с заказами:
+```
+Метод	URL	Роль	Описание
+POST	/orders	CLIENT	Создать заказ
+GET	/orders/my	CLIENT	Получить историю заказов клиента
+POST	/orders/{id}/cancel	CLIENT	Отменить заказ (если PENDING)
+GET	/orders/cafe?restaurantId={id}	CAFE_ADMIN	Получить заказы ресторана
+PATCH	/orders/cafe/{id}/confirm	CAFE_ADMIN	Подтвердить заказ кафе
+```
+Пример запроса POST /orders
+```
+{
+"restaurantId": "uuid-ресторана",
+"items": [
+{
+"itemId": "uuid-блюда",
+"quantity": 2
+},
+{
+"itemId": "uuid-блюда",
+"quantity": 1
+}
+],
+"deliveryAddress": "ул. Ленина 45, кв. 12"
+}
+```
+Особенности Order Module
+
+* Snapshot блюд хранится как JSON для истории заказа
+
+* Подтверждение заказа и отмена возможны только при статусе PENDING
+
+* Администратор кафе видит только заказы своего ресторана
+
+* Клиент видит только свои заказы
+
+* Интеграция с Spring Security через @PreAuthorize
+
+---
 # 📝 Документация API (Swagger / OpenAPI)
 
 Проект использует Springdoc OpenAPI для генерации интерактивной документации Swagger UI.
