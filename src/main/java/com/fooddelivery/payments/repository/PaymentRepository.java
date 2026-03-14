@@ -1,6 +1,6 @@
-package com.fooddelivery.orders.repository;
+package com.fooddelivery.payments.repository;
 
-import com.fooddelivery.orders.entity.Payment;
+import com.fooddelivery.payments.entity.Payment;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.util.List;

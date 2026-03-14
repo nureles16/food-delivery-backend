@@ -1,10 +1,10 @@
-package com.fooddelivery.orders.service;
+package com.fooddelivery.payments.service;
 
-import com.fooddelivery.orders.dto.CreatePaymentRequest;
-import com.fooddelivery.orders.dto.PaymentResponse;
-import com.fooddelivery.orders.entity.Payment;
-import com.fooddelivery.orders.entity.PaymentStatus;
-import com.fooddelivery.orders.repository.PaymentRepository;
+import com.fooddelivery.payments.dto.CreatePaymentRequest;
+import com.fooddelivery.payments.dto.PaymentResponse;
+import com.fooddelivery.payments.entity.Payment;
+import com.fooddelivery.payments.entity.PaymentStatus;
+import com.fooddelivery.payments.repository.PaymentRepository;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;

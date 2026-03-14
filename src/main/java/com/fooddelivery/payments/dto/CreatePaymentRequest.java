@@ -1,4 +1,4 @@
-package com.fooddelivery.orders.dto;
+package com.fooddelivery.payments.dto;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.*;

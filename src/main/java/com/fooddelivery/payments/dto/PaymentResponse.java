@@ -1,36 +1,38 @@
-package com.fooddelivery.orders.entity;
+package com.fooddelivery.payments.dto;
 
-import jakarta.persistence.*;
+import com.fooddelivery.payments.entity.PaymentStatus;
+import io.swagger.v3.oas.annotations.media.Schema;
+
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.UUID;
 
-@Entity
-@Table(name = "payments")
-public class Payment {
+@Schema(description = "Ответ с информацией о платеже")
+public class PaymentResponse {
 
-    @Id
-    @GeneratedValue
+    @Schema(description = "UUID платежа", example = "3fa85f64-5717-4562-b3fc-2c963f66afa6")
     private UUID id;
 
+    @Schema(description = "UUID заказа, к которому относится платеж", example = "3fa85f64-5717-4562-b3fc-2c963f66afa6")
     private UUID orderId;
+
+    @Schema(description = "UUID клиента", example = "1c9d4f00-0c1b-4b7b-8f2d-3f1d5f1d1c1c")
     private UUID clientId;
+
+    @Schema(description = "Сумма платежа", example = "500.50")
     private BigDecimal amount;
+
+    @Schema(description = "Комиссия платформы", example = "50.50")
     private BigDecimal platformFee;
+
+    @Schema(description = "Статус платежа", example = "PENDING")
     private PaymentStatus status;
+
+    @Schema(description = "Дата и время создания платежа", example = "2026-03-07T12:34:56")
     private LocalDateTime createdAt;
+
+    @Schema(description = "Дата и время последнего обновления платежа", example = "2026-03-07T12:35:00")
     private LocalDateTime updatedAt;
-
-    @PrePersist
-    public void prePersist() {
-        createdAt = LocalDateTime.now();
-        updatedAt = LocalDateTime.now();
-    }
-
-    @PreUpdate
-    public void preUpdate() {
-        updatedAt = LocalDateTime.now();
-    }
 
     // ===== Getters & Setters =====
     public UUID getId() { return id; }
