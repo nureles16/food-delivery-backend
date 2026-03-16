@@ -24,9 +24,10 @@ src/main/java/com/fooddelivery
 
 auth        → аутентификация и пользователи  
 catalog     → кафе и меню  
-orders      → заказы  
+orders      → заказы
+payments    → обработка платежей
+notifications → уведомления  
 config      → конфигурации (security, redis, s3)  
-common      → общие классы
 ```
 
 ---

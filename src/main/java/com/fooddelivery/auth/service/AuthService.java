@@ -1,8 +1,10 @@
 package com.fooddelivery.auth.service;
 
 import com.fooddelivery.auth.dto.*;
+import com.fooddelivery.auth.entity.RefreshToken;
 import com.fooddelivery.auth.entity.User;
 import com.fooddelivery.auth.entity.Role;
+import com.fooddelivery.auth.repository.RefreshTokenRepository;
 import com.fooddelivery.auth.repository.UserRepository;
 
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -16,13 +18,16 @@ public class AuthService {
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
+    private final RefreshTokenRepository refreshTokenRepository;
 
     public AuthService(UserRepository userRepository,
                        PasswordEncoder passwordEncoder,
-                       JwtService jwtService) {
+                       JwtService jwtService,
+                       RefreshTokenRepository refreshTokenRepository) {
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
         this.jwtService = jwtService;
+        this.refreshTokenRepository = refreshTokenRepository;
     }
 
     public void register(RegisterRequest request) {
@@ -56,17 +61,38 @@ public class AuthService {
         }
 
         String accessToken = jwtService.generateAccessToken(user.getEmail());
-        String refreshToken = jwtService.generateRefreshToken(user.getEmail());
 
-        return new AuthResponse(accessToken, refreshToken);
+        RefreshToken refreshToken = jwtService.createRefreshToken(user);
+
+        return new AuthResponse(accessToken, refreshToken.getToken());
     }
 
     public AuthResponse refreshToken(RefreshRequest request) {
+        String tokenValue = request.getRefreshToken();
+        RefreshToken token = refreshTokenRepository.findByToken(tokenValue)
+                .orElseThrow(() -> new RuntimeException("Token not found"));
 
-        String email = jwtService.extractEmail(request.getRefreshToken());
+        if (token.isRevoked() || token.getExpiryDate().isBefore(LocalDateTime.now())) {
+            throw new RuntimeException("Token revoked");
+        }
 
-        String newAccessToken = jwtService.generateAccessToken(email);
+        // ROTATION: создаём новый refresh token
+        RefreshToken newToken = jwtService.createRefreshToken(token.getUser());
+        token.setRevoked(true);
+        refreshTokenRepository.save(token);
 
-        return new AuthResponse(newAccessToken, request.getRefreshToken());
+        String newAccessToken = jwtService.generateAccessToken(token.getUser().getEmail());
+        return new AuthResponse(newAccessToken, newToken.getToken());
+    }
+
+    public void logout(String refreshTokenValue) {
+
+        RefreshToken token = refreshTokenRepository
+                .findByToken(refreshTokenValue)
+                .orElseThrow(() -> new RuntimeException("Refresh token not found"));
+
+        token.setRevoked(true);
+
+        refreshTokenRepository.save(token);
     }
 }

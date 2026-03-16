@@ -1,8 +1,51 @@
-### Login
+### REGISTER
+POST http://localhost:8080/auth/register
+Content-Type: application/json
+
+{
+  "email": "user@mail.com",
+  "password": "123456",
+  "phone": "+1234567890"
+}
+
+### LOGIN
 POST http://localhost:8080/auth/login
 Content-Type: application/json
 
 {
-  "email": "user1@mail.com",
+  "email": "user@mail.com",
   "password": "123456"
+}
+
+###{
+#  "accessToken": "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJ1c2VyQG1haWwuY29tIiwiaWF0IjoxNzczNjc5OTY0LCJleHAiOjE3NzM2ODA4NjR9.psADoK8Hnze013smVolB71EQhVtGEyqpXo4aukYmi_Q",
+#  "refreshToken": "c0d27829-ad1b-48bd-9187-3592b97246fa"
+#}
+### REFRESH TOKEN
+POST http://localhost:8080/auth/refresh
+Content-Type: application/json
+
+{
+  "refreshToken": "c0d27829-ad1b-48bd-9187-3592b97246fa"
+}
+
+###{
+#  "accessToken": "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJ1c2VyQG1haWwuY29tIiwiaWF0IjoxNzczNjgwMDE0LCJleHAiOjE3NzM2ODA5MTR9.ZVnywQQqzLWQjRVzvcMeZpXt4ZpeNSTXNFZdg32fx8A",
+#  "refreshToken": "c3aea8f6-a101-49d0-b827-5837dd37b233"
+#}
+
+### REFRESH СТАРЫМ ТОКЕНОМ
+POST http://localhost:8080/auth/refresh
+Content-Type: application/json
+
+{
+  "refreshToken": "c0d27829-ad1b-48bd-9187-3592b97246fa"
+}
+
+### REFRESH ПОСЛЕ LOGOUT
+POST http://localhost:8080/auth/refresh
+Content-Type: application/json
+
+{
+  "refreshToken": "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJ1c2VyQG1haWwuY29tIiwiaWF0IjoxNzczNjc4OTk4LCJleHAiOjE3NzYyNzA5OTh9.qn26aTIic7vKLAykUJZiIst-Ofb0ocBSHAwGmgKzCyI"
 }

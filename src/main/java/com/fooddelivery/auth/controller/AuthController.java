@@ -76,4 +76,21 @@ public class AuthController {
 
         return ResponseEntity.ok(response);
     }
+
+    @Operation(
+            summary = "Выход пользователя",
+            description = "Отмечает Refresh Token как отозванный (Blacklist) для последующего запрета обновления Access Token",
+            responses = {
+                    @ApiResponse(responseCode = "200", description = "Пользователь успешно вышел",
+                            content = @Content(schema = @Schema(implementation = String.class))),
+                    @ApiResponse(responseCode = "401", description = "Refresh Token не найден или уже отозван")
+            }
+    )
+    @PostMapping("/logout")
+    public ResponseEntity<String> logout(@RequestBody RefreshRequest request) {
+
+        authService.logout(request.getRefreshToken());
+
+        return ResponseEntity.ok("Logged out successfully");
+    }
 }
