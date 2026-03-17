@@ -14,7 +14,7 @@ Content-Type: application/json
 
 {
   "email": "user@mail.com",
-  "password": "123456"
+  "password": "newpassword123"
 }
 
 ###{
@@ -48,4 +48,29 @@ Content-Type: application/json
 
 {
   "refreshToken": "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJ1c2VyQG1haWwuY29tIiwiaWF0IjoxNzczNjc4OTk4LCJleHAiOjE3NzYyNzA5OTh9.qn26aTIic7vKLAykUJZiIst-Ofb0ocBSHAwGmgKzCyI"
+}
+
+### Запрос на создание токена для сброса пароля
+POST http://localhost:8080/auth/forgot-password
+Content-Type: application/json
+
+{
+  "email": "user@mail.com"
+}
+
+### Reset Password
+POST http://localhost:8080/auth/reset-password
+Content-Type: application/json
+
+{
+  "token": "4c0456a8-dc3c-4611-976d-e4602cc6fff4",
+  "newPassword": "newpassword123"
+}
+
+### Logout
+POST http://localhost:8080/auth/logout
+Content-Type: application/json
+
+{
+  "refreshToken": "1897231e-c73d-41a6-9790-3df734ba8fd8"
 }

@@ -77,6 +77,20 @@ public class AuthController {
         return ResponseEntity.ok(response);
     }
 
+    @Operation(summary = "Запрос на сброс пароля")
+    @PostMapping("/forgot-password")
+    public ResponseEntity<String> forgotPassword(@Valid @RequestBody ForgotPasswordRequest request) {
+        authService.forgotPassword(request);
+        return ResponseEntity.ok("Password reset token sent (check console/email)");
+    }
+
+    @Operation(summary = "Сброс пароля по токену")
+    @PostMapping("/reset-password")
+    public ResponseEntity<String> resetPassword(@Valid @RequestBody ResetPasswordRequest request) {
+        authService.resetPassword(request);
+        return ResponseEntity.ok("Password has been reset successfully");
+    }
+
     @Operation(
             summary = "Выход пользователя",
             description = "Отмечает Refresh Token как отозванный (Blacklist) для последующего запрета обновления Access Token",
