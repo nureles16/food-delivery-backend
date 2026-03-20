@@ -9,16 +9,16 @@ import java.util.UUID;
 public class CreatePaymentRequest {
 
     @NotNull
-    @Schema(description = "UUID заказа, к которому относится платеж", example = "3fa85f64-5717-4562-b3fc-2c963f66afa6", required = true)
+    @Schema(description = "UUID заказа, к которому относится платеж", example = "3fa85f64-5717-4562-b3fc-2c963f66afa6", requiredMode = Schema.RequiredMode.REQUIRED)
     private UUID orderId;
 
     @NotNull
-    @Schema(description = "UUID клиента, создающего платеж", example = "1c9d4f00-0c1b-4b7b-8f2d-3f1d5f1d1c1c", required = true)
+    @Schema(description = "UUID клиента, создающего платеж", example = "1c9d4f00-0c1b-4b7b-8f2d-3f1d5f1d1c1c", requiredMode = Schema.RequiredMode.REQUIRED)
     private UUID clientId;
 
     @NotNull
     @DecimalMin(value = "0.0", inclusive = false)
-    @Schema(description = "Сумма платежа", example = "500.50", required = true)
+    @Schema(description = "Сумма платежа", example = "500.50", requiredMode = Schema.RequiredMode.REQUIRED)
     private BigDecimal amount;
 
     @DecimalMin(value = "0.0")

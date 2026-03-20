@@ -10,6 +10,7 @@ import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -38,7 +39,8 @@ public class AuthController {
 
         authService.register(request);
 
-        return ResponseEntity.ok("User registered successfully");
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body("User registered successfully");
     }
 
     @Operation(
@@ -70,21 +72,40 @@ public class AuthController {
     )
     @PostMapping("/refresh")
     public ResponseEntity<AuthResponse> refresh(
-            @RequestBody RefreshRequest request) {
+            @Valid @RequestBody RefreshRequest request){
 
         AuthResponse response = authService.refreshToken(request);
 
         return ResponseEntity.ok(response);
     }
 
-    @Operation(summary = "Запрос на сброс пароля")
+    @Operation(
+            summary = "Запрос на сброс пароля",
+            description = "Отправляет ссылку для сброса пароля на email пользователя",
+            responses = {
+                    @ApiResponse(responseCode = "200", description = "Если email существует — письмо отправлено"),
+                    @ApiResponse(responseCode = "400", description = "Ошибка валидации",
+                            content = @Content(schema = @Schema(example = """
+                        {
+                          "email": "Некорректный email"
+                        }
+                        """)))
+            }
+    )
     @PostMapping("/forgot-password")
     public ResponseEntity<String> forgotPassword(@Valid @RequestBody ForgotPasswordRequest request) {
         authService.forgotPassword(request);
         return ResponseEntity.ok("Password reset token sent (check console/email)");
     }
 
-    @Operation(summary = "Сброс пароля по токену")
+    @Operation(
+            summary = "Сброс пароля",
+            description = "Сбрасывает пароль пользователя по токену из email",
+            responses = {
+                    @ApiResponse(responseCode = "200", description = "Пароль успешно обновлён"),
+                    @ApiResponse(responseCode = "400", description = "Неверный токен или ошибка валидации")
+            }
+    )
     @PostMapping("/reset-password")
     public ResponseEntity<String> resetPassword(@Valid @RequestBody ResetPasswordRequest request) {
         authService.resetPassword(request);
@@ -101,7 +122,7 @@ public class AuthController {
             }
     )
     @PostMapping("/logout")
-    public ResponseEntity<String> logout(@RequestBody RefreshRequest request) {
+    public ResponseEntity<String> logout(@Valid @RequestBody RefreshRequest request) {
 
         authService.logout(request.getRefreshToken());
 

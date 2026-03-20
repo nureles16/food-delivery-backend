@@ -27,19 +27,25 @@ public class CreateRestaurantRequest {
             description = "Адрес ресторана",
             example = "ул. Киевская 120"
     )
-    @NotBlank
+    @NotBlank(message = "Адрес обязателен")
+    @Size(max = 255)
     private String address;
 
     @Schema(
             description = "Город",
             example = "Bishkek"
     )
-    @NotBlank
+    @NotBlank(message = "Город обязателен")
+    @Size(max = 100)
     private String city;
 
     @Schema(
             description = "URL логотипа",
             example = "https://cdn.fooddelivery.kg/logo.png"
+    )
+    @Pattern(
+            regexp = "^(http|https)://.*$",
+            message = "Некорректный URL логотипа"
     )
     private String logoUrl;
 
@@ -54,13 +60,15 @@ public class CreateRestaurantRequest {
             description = "Минимальная сумма заказа",
             example = "300"
     )
-    @NotNull
+    @NotNull(message = "Минимальная сумма обязательна")
+    @DecimalMin(value = "0.0", inclusive = false, message = "Должно быть больше 0")
     private BigDecimal minOrderAmount;
 
     @Schema(
             description = "Радиус доставки (км)",
             example = "5"
     )
+    @DecimalMin(value = "0.0", inclusive = false, message = "Радиус должен быть больше 0")
     private Double deliveryZoneRadiusKm;
 
     public CreateRestaurantRequest() {}

@@ -9,12 +9,13 @@ import java.util.UUID;
 @Schema(description = "Item inside order")
 public class OrderItemDto {
 
-    @Schema(description = "Menu item ID", example = "4f4d9f6b-9a1a-4e90-8a3f-111111111111")
-    @NotNull
+    @Schema(description = "Menu item ID", example = "4f4d9f6b-9a1a-4e90-8a3f-111111111111", requiredMode = Schema.RequiredMode.REQUIRED)
+    @NotNull(message = "ItemId обязателен")
     private UUID itemId;
 
-    @Schema(description = "Quantity of item", example = "2")
-    @Min(1)
+    @Schema(description = "Quantity of item", example = "2", requiredMode = Schema.RequiredMode.REQUIRED)
+    @NotNull(message = "Количество обязателено")
+    @Min(value = 1, message = "Количество должно быть хотя бы 1")
     private Integer quantity;
 
     public UUID getItemId() {

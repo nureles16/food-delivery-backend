@@ -1,14 +1,18 @@
 package com.fooddelivery.auth.dto;
 
+import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 
+@Schema(description = "Запрос на сброс пароля")
 public class ResetPasswordRequest {
 
-    @NotBlank
+    @Schema(description = "Токен сброса пароля", example = "abc123token")
+    @NotBlank(message = "Token обязателен")
     private String token;
 
-    @NotBlank
+    @Schema(description = "Новый пароль", example = "StrongPass123")
+    @NotBlank(message = "Пароль обязателен")
     @Size(min = 6, message = "Password must be at least 6 characters")
     private String newPassword;
 

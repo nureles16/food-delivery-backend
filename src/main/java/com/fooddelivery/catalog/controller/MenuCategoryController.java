@@ -27,7 +27,7 @@ public class MenuCategoryController {
 
     @Operation(summary = "Создать категорию меню", description = "Создаёт новую категорию меню для ресторана. Доступно роли CAFE_ADMIN")
     @ApiResponses(value = {
-            @ApiResponse(responseCode = "200", description = "Категория успешно создана"),
+            @ApiResponse(responseCode = "201", description = "Категория успешно создана"),
             @ApiResponse(responseCode = "400", description = "Некорректные данные запроса"),
             @ApiResponse(responseCode = "404", description = "Ресторан не найден")
     })

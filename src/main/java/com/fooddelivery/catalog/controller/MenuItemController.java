@@ -7,6 +7,7 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
+import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
@@ -33,7 +34,7 @@ public class MenuItemController {
     })
     @PostMapping
     @PreAuthorize("hasAuthority('CAFE_ADMIN')")
-    public ResponseEntity<MenuItem> create(@RequestBody MenuItemDto dto) {
+    public ResponseEntity<MenuItem> create(@Valid @RequestBody MenuItemDto dto) {
         return ResponseEntity.ok(menuItemService.create(dto));
     }
 
@@ -46,7 +47,7 @@ public class MenuItemController {
     })
     @PutMapping("/{id}")
     @PreAuthorize("hasAuthority('CAFE_ADMIN')")
-    public ResponseEntity<MenuItem> update(@PathVariable UUID id, @RequestBody MenuItemDto dto) {
+    public ResponseEntity<MenuItem> update(@PathVariable UUID id, @Valid @RequestBody MenuItemDto dto) {
         return ResponseEntity.ok(menuItemService.update(id, dto));
     }
 
