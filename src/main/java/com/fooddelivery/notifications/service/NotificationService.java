@@ -4,12 +4,12 @@ import com.fooddelivery.notifications.dto.CreateNotificationRequest;
 import com.fooddelivery.notifications.dto.NotificationResponse;
 import com.fooddelivery.notifications.entity.Notification;
 import com.fooddelivery.notifications.repository.NotificationRepository;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
-import java.util.List;
 import java.util.UUID;
-import java.util.stream.Collectors;
 
 @Service
 public class NotificationService {
@@ -34,11 +34,10 @@ public class NotificationService {
     }
 
     // Получить уведомления пользователя
-    public List<NotificationResponse> getUserNotifications(UUID userId) {
-        return notificationRepository.findAllByUserIdOrderByCreatedAtDesc(userId)
-                .stream()
-                .map(this::mapToResponse)
-                .collect(Collectors.toList());
+    public Page<NotificationResponse> getUserNotifications(UUID userId, Pageable pageable) {
+
+        return notificationRepository.findAllByUserId(userId, pageable)
+                .map(this::mapToResponse);
     }
 
     // Отметить уведомление как прочитанное

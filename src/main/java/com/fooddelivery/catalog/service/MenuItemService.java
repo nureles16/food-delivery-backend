@@ -3,9 +3,10 @@ package com.fooddelivery.catalog.service;
 import com.fooddelivery.catalog.dto.MenuItemDto;
 import com.fooddelivery.catalog.entity.MenuItem;
 import com.fooddelivery.catalog.repository.MenuItemRepository;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
-import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -50,7 +51,7 @@ public class MenuItemService {
         return menuItemRepository.save(item);
     }
 
-    public List<MenuItem> getByCategory(UUID categoryId) {
-        return menuItemRepository.findAllByCategoryId(categoryId);
+    public Page<MenuItem> getByCategory(UUID categoryId, Pageable pageable) {
+        return menuItemRepository.findAllByCategoryId(categoryId, pageable);
     }
 }

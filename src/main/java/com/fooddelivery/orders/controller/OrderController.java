@@ -8,12 +8,15 @@ import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.List;
 import java.util.UUID;
 
 @RestController
@@ -47,21 +50,6 @@ public class OrderController {
         return ResponseEntity.ok(order);
     }
 
-
-    @Operation(summary = "Get my orders", description = "Client retrieves their order history")
-    @ApiResponse(responseCode = "200", description = "Orders retrieved")
-    @GetMapping("/my")
-    @PreAuthorize("hasAuthority('CLIENT')")
-    public ResponseEntity<List<Order>> getMyOrders(Authentication authentication) {
-
-        UUID clientId = UUID.fromString(authentication.getName());
-
-        List<Order> orders = orderService.getClientOrders(clientId);
-
-        return ResponseEntity.ok(orders);
-    }
-
-
     @Operation(summary = "Cancel order", description = "Client cancels order if status is PENDING")
     @ApiResponse(responseCode = "200", description = "Order cancelled")
     @PostMapping("/{id}/cancel")
@@ -74,17 +62,41 @@ public class OrderController {
     }
 
 
+
+
     @Operation(summary = "Get restaurant orders", description = "Cafe admin sees incoming orders")
     @ApiResponse(responseCode = "200", description = "Orders retrieved")
     @GetMapping("/cafe")
     @PreAuthorize("hasAuthority('CAFE_ADMIN')")
-    public ResponseEntity<List<Order>> getCafeOrders(@RequestParam UUID restaurantId) {
+    public ResponseEntity<Page<Order>> getCafeOrders(
+            @RequestParam UUID restaurantId,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size
+    ) {
+        Pageable pageable = PageRequest.of(page, size, Sort.by("createdAt").descending());
 
-        List<Order> orders = orderService.getRestaurantOrders(restaurantId);
-
-        return ResponseEntity.ok(orders);
+        return ResponseEntity.ok(
+                orderService.getRestaurantOrders(restaurantId, pageable)
+        );
     }
 
+
+    @Operation(summary = "Get my orders", description = "Client retrieves their order history")
+    @ApiResponse(responseCode = "200", description = "Orders retrieved")
+    @GetMapping("/my")
+    @PreAuthorize("hasAuthority('CLIENT')")
+    public ResponseEntity<Page<Order>> getMyOrders(
+            Authentication authentication,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size
+    ) {
+
+        UUID clientId = UUID.fromString(authentication.getName());
+
+        Pageable pageable = PageRequest.of(page, size, Sort.by("createdAt").descending());
+
+        return ResponseEntity.ok(orderService.getClientOrders(clientId, pageable));
+    }
 
     @Operation(summary = "Confirm order", description = "Cafe confirms order")
     @ApiResponse(responseCode = "200", description = "Order confirmed")

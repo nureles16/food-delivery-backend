@@ -8,9 +8,9 @@ import com.fooddelivery.payments.repository.PaymentRepository;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
-import java.util.List;
 import java.util.UUID;
-import java.util.stream.Collectors;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 
 @Service
 public class PaymentService {
@@ -42,18 +42,14 @@ public class PaymentService {
         return mapToResponse(updated);
     }
 
-    public List<PaymentResponse> getPaymentsByClient(UUID clientId) {
-        return paymentRepository.findByClientId(clientId)
-                .stream()
-                .map(this::mapToResponse)
-                .collect(Collectors.toList());
+    public Page<PaymentResponse> getPaymentsByClient(UUID clientId, Pageable pageable) {
+        return paymentRepository.findByClientId(clientId, pageable)
+                .map(this::mapToResponse);
     }
 
-    public List<PaymentResponse> getPaymentsByOrder(UUID orderId) {
-        return paymentRepository.findByOrderId(orderId)
-                .stream()
-                .map(this::mapToResponse)
-                .collect(Collectors.toList());
+    public Page<PaymentResponse> getPaymentsByOrder(UUID orderId, Pageable pageable) {
+        return paymentRepository.findByOrderId(orderId, pageable)
+                .map(this::mapToResponse);
     }
 
     private PaymentResponse mapToResponse(Payment payment) {

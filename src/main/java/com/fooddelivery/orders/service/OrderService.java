@@ -8,6 +8,8 @@ import com.fooddelivery.orders.entity.Order;
 import com.fooddelivery.orders.entity.OrderStatus;
 import com.fooddelivery.orders.repository.OrderRepository;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
@@ -80,12 +82,12 @@ public class OrderService {
         return orderRepository.save(order);
     }
 
-    public List<Order> getClientOrders(UUID clientId) {
-        return orderRepository.findByClientId(clientId);
+    public Page<Order> getClientOrders(UUID clientId, Pageable pageable) {
+        return orderRepository.findByClientId(clientId, pageable);
     }
 
-    public List<Order> getRestaurantOrders(UUID restaurantId) {
-        return orderRepository.findByRestaurantId(restaurantId);
+    public Page<Order> getRestaurantOrders(UUID restaurantId, Pageable pageable) {
+        return orderRepository.findByRestaurantId(restaurantId, pageable);
     }
 
     public Order cancelOrder(UUID orderId) {

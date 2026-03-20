@@ -3,9 +3,10 @@ package com.fooddelivery.catalog.service;
 import com.fooddelivery.catalog.dto.CreateRestaurantRequest;
 import com.fooddelivery.catalog.entity.Restaurant;
 import com.fooddelivery.catalog.repository.RestaurantRepository;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
-import java.util.List;
 import java.util.UUID;
 
 @Service
@@ -34,8 +35,8 @@ public class RestaurantService {
         return restaurantRepository.save(restaurant);
     }
 
-    public List<Restaurant> getAllRestaurants() {
-        return restaurantRepository.findAll();
+    public Page<Restaurant> getAllRestaurants(Pageable pageable) {
+        return restaurantRepository.findAll(pageable);
     }
 
     public Restaurant getRestaurant(UUID id) {

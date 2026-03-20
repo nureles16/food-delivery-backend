@@ -8,10 +8,11 @@ import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import jakarta.validation.Valid;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.List;
 import java.util.UUID;
 
 @RestController
@@ -31,8 +32,8 @@ public class RestaurantController {
     )
     @ApiResponse(responseCode = "200", description = "Список ресторанов успешно получен")
     @GetMapping("/restaurants")
-    public List<Restaurant> getRestaurants() {
-        return restaurantService.getAllRestaurants();
+    public Page<Restaurant> getRestaurants(Pageable pageable) {
+        return restaurantService.getAllRestaurants(pageable);
     }
 
     @Operation(

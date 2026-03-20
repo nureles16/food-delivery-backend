@@ -7,9 +7,14 @@ import com.fooddelivery.payments.service.PaymentService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.List;
 import java.util.UUID;
 
 @RestController
@@ -37,14 +42,42 @@ public class PaymentController {
     }
 
     @Operation(summary = "Получить все платежи пользователя")
-    @GetMapping("/client/{clientId}")
-    public List<PaymentResponse> getPaymentsByClient(@PathVariable UUID clientId) {
-        return paymentService.getPaymentsByClient(clientId);
+    @GetMapping("/my")
+    public ResponseEntity<Page<PaymentResponse>> getMyPayments(
+            Authentication authentication,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size
+    ) {
+
+        UUID clientId = UUID.fromString(authentication.getName());
+
+        Pageable pageable = PageRequest.of(
+                page,
+                size,
+                Sort.by("createdAt").descending()
+        );
+
+        return ResponseEntity.ok(
+                paymentService.getPaymentsByClient(clientId, pageable)
+        );
     }
 
     @Operation(summary = "Получить все платежи по заказу")
     @GetMapping("/order/{orderId}")
-    public List<PaymentResponse> getPaymentsByOrder(@PathVariable UUID orderId) {
-        return paymentService.getPaymentsByOrder(orderId);
+    public ResponseEntity<Page<PaymentResponse>> getPaymentsByOrder(
+            @PathVariable UUID orderId,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size
+    ) {
+
+        Pageable pageable = PageRequest.of(
+                page,
+                size,
+                Sort.by("createdAt").descending()
+        );
+
+        return ResponseEntity.ok(
+                paymentService.getPaymentsByOrder(orderId, pageable)
+        );
     }
 }
