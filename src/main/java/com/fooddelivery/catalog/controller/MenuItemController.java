@@ -15,6 +15,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
+import java.math.BigDecimal;
 import java.util.UUID;
 
 @RestController
@@ -74,10 +75,16 @@ public class MenuItemController {
     @GetMapping("/category/{categoryId}")
     public ResponseEntity<Page<MenuItem>> getByCategory(
             @PathVariable UUID categoryId,
+            @RequestParam(required = false) String name,
+            @RequestParam(required = false) BigDecimal minPrice,
+            @RequestParam(required = false) BigDecimal maxPrice,
+            @RequestParam(required = false) Boolean available,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size
     ) {
         Pageable pageable = PageRequest.of(page, size);
-        return ResponseEntity.ok(menuItemService.getByCategory(categoryId, pageable));
+        Page<MenuItem> items = menuItemService.getByCategory(
+                categoryId, name, minPrice, maxPrice, available, pageable);
+        return ResponseEntity.ok(items);
     }
 }

@@ -3,10 +3,13 @@ package com.fooddelivery.catalog.service;
 import com.fooddelivery.catalog.dto.CreateRestaurantRequest;
 import com.fooddelivery.catalog.entity.Restaurant;
 import com.fooddelivery.catalog.repository.RestaurantRepository;
+import com.fooddelivery.catalog.specification.RestaurantSpecification;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 
+import java.math.BigDecimal;
 import java.util.UUID;
 
 @Service
@@ -35,8 +38,19 @@ public class RestaurantService {
         return restaurantRepository.save(restaurant);
     }
 
-    public Page<Restaurant> getAllRestaurants(Pageable pageable) {
-        return restaurantRepository.findAll(pageable);
+    public Page<Restaurant> getAllRestaurants(Pageable pageable,
+                                              String name,
+                                              String city,
+                                              String cuisineType,
+                                              BigDecimal minOrderAmount,
+                                              Boolean active) {
+        Specification<Restaurant> spec = Specification.where(RestaurantSpecification.nameContains(name))
+                .and(RestaurantSpecification.cityEquals(city))
+                .and(RestaurantSpecification.cuisineTypeEquals(cuisineType))
+                .and(RestaurantSpecification.minOrderAmountGreaterThanOrEqual(minOrderAmount))
+                .and(RestaurantSpecification.isActive(active));
+
+        return restaurantRepository.findAll(spec, pageable);
     }
 
     public Restaurant getRestaurant(UUID id) {

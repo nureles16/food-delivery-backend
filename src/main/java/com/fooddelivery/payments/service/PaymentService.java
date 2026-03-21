@@ -5,9 +5,12 @@ import com.fooddelivery.payments.dto.PaymentResponse;
 import com.fooddelivery.payments.entity.Payment;
 import com.fooddelivery.payments.entity.PaymentStatus;
 import com.fooddelivery.payments.repository.PaymentRepository;
+import com.fooddelivery.payments.specification.PaymentSpecification;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
 import java.util.UUID;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -42,16 +45,39 @@ public class PaymentService {
         return mapToResponse(updated);
     }
 
-    public Page<PaymentResponse> getPaymentsByClient(UUID clientId, Pageable pageable) {
-        return paymentRepository.findByClientId(clientId, pageable)
-                .map(this::mapToResponse);
+    public Page<PaymentResponse> getPaymentsByClient(UUID clientId,
+                                                     UUID orderId,
+                                                     PaymentStatus status,
+                                                     BigDecimal minAmount,
+                                                     BigDecimal maxAmount,
+                                                     LocalDateTime startDate,
+                                                     LocalDateTime endDate,
+                                                     Pageable pageable) {
+        Specification<Payment> spec = Specification
+                .where(PaymentSpecification.clientIdEquals(clientId))
+                .and(PaymentSpecification.orderIdEquals(orderId))
+                .and(PaymentSpecification.statusEquals(status))
+                .and(PaymentSpecification.amountBetween(minAmount, maxAmount))
+                .and(PaymentSpecification.createdAtBetween(startDate, endDate));
+
+        return paymentRepository.findAll(spec, pageable).map(this::mapToResponse);
     }
 
-    public Page<PaymentResponse> getPaymentsByOrder(UUID orderId, Pageable pageable) {
-        return paymentRepository.findByOrderId(orderId, pageable)
-                .map(this::mapToResponse);
-    }
+    public Page<PaymentResponse> getPaymentsByOrder(UUID orderId,
+                                                    PaymentStatus status,
+                                                    BigDecimal minAmount,
+                                                    BigDecimal maxAmount,
+                                                    LocalDateTime startDate,
+                                                    LocalDateTime endDate,
+                                                    Pageable pageable) {
+        Specification<Payment> spec = Specification
+                .where(PaymentSpecification.orderIdEquals(orderId))
+                .and(PaymentSpecification.statusEquals(status))
+                .and(PaymentSpecification.amountBetween(minAmount, maxAmount))
+                .and(PaymentSpecification.createdAtBetween(startDate, endDate));
 
+        return paymentRepository.findAll(spec, pageable).map(this::mapToResponse);
+    }
     private PaymentResponse mapToResponse(Payment payment) {
         PaymentResponse response = new PaymentResponse();
         response.setId(payment.getId());

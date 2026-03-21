@@ -5,6 +5,10 @@ import com.fooddelivery.catalog.entity.MenuCategory;
 import com.fooddelivery.catalog.entity.Restaurant;
 import com.fooddelivery.catalog.repository.MenuCategoryRepository;
 import com.fooddelivery.catalog.repository.RestaurantRepository;
+import com.fooddelivery.catalog.specification.MenuCategorySpecification;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 
 import java.util.UUID;
@@ -51,5 +55,21 @@ public class MenuCategoryService {
                 .orElseThrow(() -> new RuntimeException("Category not found"));
 
         categoryRepository.delete(category);
+    }
+
+    public Page<MenuCategory> getCategoriesByRestaurant(UUID restaurantId,
+                                                        String name,
+                                                        Integer minPosition,
+                                                        Integer maxPosition,
+                                                        Pageable pageable) {
+        restaurantRepository.findById(restaurantId)
+                .orElseThrow(() -> new RuntimeException("Restaurant not found"));
+
+        Specification<MenuCategory> spec = Specification
+                .where(MenuCategorySpecification.restaurantIdEquals(restaurantId))
+                .and(MenuCategorySpecification.nameContains(name))
+                .and(MenuCategorySpecification.positionBetween(minPosition, maxPosition));
+
+        return categoryRepository.findAll(spec, pageable);
     }
 }

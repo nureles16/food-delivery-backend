@@ -4,8 +4,10 @@ import com.fooddelivery.notifications.dto.CreateNotificationRequest;
 import com.fooddelivery.notifications.dto.NotificationResponse;
 import com.fooddelivery.notifications.entity.Notification;
 import com.fooddelivery.notifications.repository.NotificationRepository;
+import com.fooddelivery.notifications.specification.NotificationSpecification;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
@@ -34,9 +36,20 @@ public class NotificationService {
     }
 
     // Получить уведомления пользователя
-    public Page<NotificationResponse> getUserNotifications(UUID userId, Pageable pageable) {
+    public Page<NotificationResponse> getUserNotifications(UUID userId,
+                                                           Boolean read,
+                                                           LocalDateTime startDate,
+                                                           LocalDateTime endDate,
+                                                           String keyword,
+                                                           Pageable pageable) {
 
-        return notificationRepository.findAllByUserId(userId, pageable)
+        Specification<Notification> spec = Specification
+                .where(NotificationSpecification.userIdEquals(userId))
+                .and(NotificationSpecification.readEquals(read))
+                .and(NotificationSpecification.createdAtBetween(startDate, endDate))
+                .and(NotificationSpecification.titleOrMessageContains(keyword));
+
+        return notificationRepository.findAll(spec, pageable)
                 .map(this::mapToResponse);
     }
 

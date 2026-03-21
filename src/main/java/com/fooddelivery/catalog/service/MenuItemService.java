@@ -3,10 +3,13 @@ package com.fooddelivery.catalog.service;
 import com.fooddelivery.catalog.dto.MenuItemDto;
 import com.fooddelivery.catalog.entity.MenuItem;
 import com.fooddelivery.catalog.repository.MenuItemRepository;
+import com.fooddelivery.catalog.specification.MenuItemSpecification;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 
+import java.math.BigDecimal;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -51,7 +54,19 @@ public class MenuItemService {
         return menuItemRepository.save(item);
     }
 
-    public Page<MenuItem> getByCategory(UUID categoryId, Pageable pageable) {
-        return menuItemRepository.findAllByCategoryId(categoryId, pageable);
+    public Page<MenuItem> getByCategory(UUID categoryId,
+                                        String name,
+                                        BigDecimal minPrice,
+                                        BigDecimal maxPrice,
+                                        Boolean available,
+                                        Pageable pageable) {
+
+        Specification<MenuItem> spec = Specification
+                .where(MenuItemSpecification.categoryIdEquals(categoryId))
+                .and(MenuItemSpecification.nameContains(name))
+                .and(MenuItemSpecification.priceBetween(minPrice, maxPrice))
+                .and(MenuItemSpecification.availableEquals(available));
+
+        return menuItemRepository.findAll(spec, pageable);
     }
 }

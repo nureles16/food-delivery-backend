@@ -13,6 +13,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
+import java.math.BigDecimal;
 import java.util.UUID;
 
 @RestController
@@ -32,8 +33,15 @@ public class RestaurantController {
     )
     @ApiResponse(responseCode = "200", description = "Список ресторанов успешно получен")
     @GetMapping("/restaurants")
-    public Page<Restaurant> getRestaurants(Pageable pageable) {
-        return restaurantService.getAllRestaurants(pageable);
+    public Page<Restaurant> getRestaurants(
+            Pageable pageable,
+            @RequestParam(required = false) String name,
+            @RequestParam(required = false) String city,
+            @RequestParam(required = false) String cuisineType,
+            @RequestParam(required = false) BigDecimal minOrderAmount,
+            @RequestParam(required = false) Boolean active) {
+
+        return restaurantService.getAllRestaurants(pageable, name, city, cuisineType, minOrderAmount, active);
     }
 
     @Operation(

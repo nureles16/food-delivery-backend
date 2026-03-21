@@ -9,6 +9,9 @@ import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
@@ -65,5 +68,28 @@ public class MenuCategoryController {
             @PathVariable UUID id
     ) {
         categoryService.deleteCategory(id);
+    }
+
+
+    @Operation(
+            summary = "Получить категории ресторана",
+            description = "Публичный endpoint. Возвращает категории меню для указанного ресторана с фильтрацией."
+    )
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Категории успешно получены"),
+            @ApiResponse(responseCode = "404", description = "Ресторан не найден")
+    })
+    @GetMapping("/restaurant/{restaurantId}")
+    public Page<MenuCategory> getCategoriesByRestaurant(
+            @Parameter(description = "ID ресторана", required = true)
+            @PathVariable UUID restaurantId,
+            @RequestParam(required = false) String name,
+            @RequestParam(required = false) Integer minPosition,
+            @RequestParam(required = false) Integer maxPosition,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size
+    ) {
+        Pageable pageable = PageRequest.of(page, size);
+        return categoryService.getCategoriesByRestaurant(restaurantId, name, minPosition, maxPosition, pageable);
     }
 }

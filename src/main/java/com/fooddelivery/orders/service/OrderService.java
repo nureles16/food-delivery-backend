@@ -8,8 +8,10 @@ import com.fooddelivery.orders.entity.Order;
 import com.fooddelivery.orders.entity.OrderStatus;
 import com.fooddelivery.orders.repository.OrderRepository;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fooddelivery.orders.specification.OrderSpecification;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
@@ -82,12 +84,40 @@ public class OrderService {
         return orderRepository.save(order);
     }
 
-    public Page<Order> getClientOrders(UUID clientId, Pageable pageable) {
-        return orderRepository.findByClientId(clientId, pageable);
+    public Page<Order> getClientOrders(UUID clientId,
+                                       OrderStatus status,
+                                       String orderNumber,
+                                       LocalDateTime startDate,
+                                       LocalDateTime endDate,
+                                       BigDecimal minAmount,
+                                       BigDecimal maxAmount,
+                                       Pageable pageable) {
+        Specification<Order> spec = Specification
+                .where(OrderSpecification.clientIdEquals(clientId))
+                .and(OrderSpecification.statusEquals(status))
+                .and(OrderSpecification.orderNumberContains(orderNumber))
+                .and(OrderSpecification.createdAtBetween(startDate, endDate))
+                .and(OrderSpecification.totalAmountBetween(minAmount, maxAmount));
+
+        return orderRepository.findAll(spec, pageable);
     }
 
-    public Page<Order> getRestaurantOrders(UUID restaurantId, Pageable pageable) {
-        return orderRepository.findByRestaurantId(restaurantId, pageable);
+    public Page<Order> getRestaurantOrders(UUID restaurantId,
+                                           OrderStatus status,
+                                           String orderNumber,
+                                           LocalDateTime startDate,
+                                           LocalDateTime endDate,
+                                           BigDecimal minAmount,
+                                           BigDecimal maxAmount,
+                                           Pageable pageable) {
+        Specification<Order> spec = Specification
+                .where(OrderSpecification.restaurantIdEquals(restaurantId))
+                .and(OrderSpecification.statusEquals(status))
+                .and(OrderSpecification.orderNumberContains(orderNumber))
+                .and(OrderSpecification.createdAtBetween(startDate, endDate))
+                .and(OrderSpecification.totalAmountBetween(minAmount, maxAmount));
+
+        return orderRepository.findAll(spec, pageable);
     }
 
     public Order cancelOrder(UUID orderId) {
