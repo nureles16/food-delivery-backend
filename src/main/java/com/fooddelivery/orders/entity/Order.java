@@ -1,5 +1,7 @@
 package com.fooddelivery.orders.entity;
 
+import com.fooddelivery.orders.dto.Address;
+import com.fooddelivery.orders.specification.AddressJsonConverter;
 import jakarta.persistence.*;
 
 import java.math.BigDecimal;
@@ -39,11 +41,15 @@ public class Order {
     @Column(name = "total_amount")
     private BigDecimal totalAmount;
 
-    @Column(name = "delivery_address")
-    private String deliveryAddress;
+//    @Column(name = "delivery_address")
+//    private String deliveryAddress;
 
     @Column(name = "created_at")
     private LocalDateTime createdAt;
+
+    @Convert(converter = AddressJsonConverter.class)
+    @Column(columnDefinition = "jsonb")
+    private Address deliveryAddress;
 
     public Order() {
     }
@@ -86,9 +92,8 @@ public class Order {
         return totalAmount;
     }
 
-    public String getDeliveryAddress() {
-        return deliveryAddress;
-    }
+    public Address getDeliveryAddress() { return deliveryAddress; }
+
 
     public LocalDateTime getCreatedAt() {
         return createdAt;
@@ -128,9 +133,7 @@ public class Order {
         this.totalAmount = totalAmount;
     }
 
-    public void setDeliveryAddress(String deliveryAddress) {
-        this.deliveryAddress = deliveryAddress;
-    }
+    public void setDeliveryAddress(Address deliveryAddress) { this.deliveryAddress = deliveryAddress; }
 
     public void setCreatedAt(LocalDateTime createdAt) {
         this.createdAt = createdAt;

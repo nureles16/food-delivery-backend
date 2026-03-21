@@ -17,37 +17,23 @@ public class CreateOrderRequest {
     @NotNull(message = "RestaurantId обязателен")
     private UUID restaurantId;
 
-    @Schema(description = "Delivery address", example = "Bishkek, Kievskaya 120", requiredMode = Schema.RequiredMode.REQUIRED)
     @NotBlank(message = "Адрес доставки обязателен")
     @Size(max = 255, message = "Адрес доставки слишком длинный")
-    private String deliveryAddress;
+    @Schema(description = "Delivery address", requiredMode = Schema.RequiredMode.REQUIRED)
+    @Valid
+    private Address deliveryAddress;
 
     @Schema(description = "Items in the order", requiredMode = Schema.RequiredMode.REQUIRED)
     @NotEmpty(message = "Список товаров не может быть пустым")
     @Valid // 🔹 Чтобы валидация OrderItemDto сработала
     private List<OrderItemDto> items;
 
-    public UUID getRestaurantId() {
-        return restaurantId;
-    }
+    public UUID getRestaurantId() { return restaurantId; }
+    public void setRestaurantId(UUID restaurantId) { this.restaurantId = restaurantId; }
 
-    public String getDeliveryAddress() {
-        return deliveryAddress;
-    }
+    public Address getDeliveryAddress() { return deliveryAddress; }
+    public void setDeliveryAddress(Address deliveryAddress) { this.deliveryAddress = deliveryAddress; }
 
-    public List<OrderItemDto> getItems() {
-        return items;
-    }
-
-    public void setRestaurantId(UUID restaurantId) {
-        this.restaurantId = restaurantId;
-    }
-
-    public void setDeliveryAddress(String deliveryAddress) {
-        this.deliveryAddress = deliveryAddress;
-    }
-
-    public void setItems(List<OrderItemDto> items) {
-        this.items = items;
-    }
+    public List<OrderItemDto> getItems() { return items; }
+    public void setItems(List<OrderItemDto> items) { this.items = items; }
 }
