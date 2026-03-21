@@ -59,12 +59,11 @@ public class OrderService {
             MenuItem item = menuItemRepository.findById(itemDto.getItemId())
                     .orElseThrow(() -> new RuntimeException("Menu item not found: " + itemDto.getItemId()));
 
-            // Item must belong to the same restaurant
-            if (!item.getId().equals(request.getRestaurantId())) {
-                throw new RuntimeException("Item " + itemDto.getItemId() + " does not belong to the specified restaurant");
+            // FIXED: compare menu item's restaurant ID with request restaurant ID
+            if (!item.getRestaurantId().equals(request.getRestaurantId())) {
+                throw new RuntimeException("Item " + item.getId() + " does not belong to restaurant " + request.getRestaurantId());
             }
 
-            // Item must be available
             if (!item.isAvailable()) {
                 throw new RuntimeException("Item " + item.getName() + " is currently unavailable");
             }

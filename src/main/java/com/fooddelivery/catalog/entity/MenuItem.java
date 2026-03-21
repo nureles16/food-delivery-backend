@@ -25,6 +25,17 @@ public class MenuItem {
     @Column(nullable = false)
     private BigDecimal price;
 
+    public UUID getRestaurantId() {
+        return restaurantId;
+    }
+
+    public void setRestaurantId(UUID restaurantId) {
+        this.restaurantId = restaurantId;
+    }
+
+    @Column(nullable = false)
+    private UUID restaurantId;
+
     private String imageUrl;
 
     private boolean isAvailable = true;
