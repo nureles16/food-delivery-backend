@@ -43,12 +43,17 @@ public class RestaurantService {
                                               String city,
                                               String cuisineType,
                                               BigDecimal minOrderAmount,
-                                              Boolean active) {
+                                              Boolean active,
+                                              Boolean openNow) {
         Specification<Restaurant> spec = Specification.where(RestaurantSpecification.nameContains(name))
                 .and(RestaurantSpecification.cityEquals(city))
                 .and(RestaurantSpecification.cuisineTypeEquals(cuisineType))
                 .and(RestaurantSpecification.minOrderAmountGreaterThanOrEqual(minOrderAmount))
                 .and(RestaurantSpecification.isActive(active));
+
+        if (Boolean.TRUE.equals(openNow)) {
+            spec = spec.and(RestaurantSpecification.isOpenNow());
+        }
 
         return restaurantRepository.findAll(spec, pageable);
     }

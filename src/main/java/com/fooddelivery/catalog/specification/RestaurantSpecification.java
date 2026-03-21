@@ -2,9 +2,15 @@ package com.fooddelivery.catalog.specification;
 
 
 import com.fooddelivery.catalog.entity.Restaurant;
+import com.fooddelivery.catalog.entity.WorkingHours;
+import jakarta.persistence.criteria.Root;
+import jakarta.persistence.criteria.Subquery;
 import org.springframework.data.jpa.domain.Specification;
 
 import java.math.BigDecimal;
+import java.time.DayOfWeek;
+import java.time.LocalDate;
+import java.time.LocalTime;
 
 public class RestaurantSpecification {
 
@@ -37,5 +43,24 @@ public class RestaurantSpecification {
         return (root, query, cb) ->
                 active == null ? cb.conjunction() :
                         cb.equal(root.get("active"), active);
+    }
+
+    public static Specification<Restaurant> isOpenNow() {
+        return (root, query, cb) -> {
+            // Подзапрос для поиска интервалов работы, покрывающих текущее время
+            LocalTime now = LocalTime.now();
+            DayOfWeek today = LocalDate.now().getDayOfWeek();
+
+            Subquery<Long> subquery = query.subquery(Long.class);
+            Root<WorkingHours> whRoot = subquery.from(WorkingHours.class);
+            subquery.select(cb.literal(1L));
+            subquery.where(
+                    cb.equal(whRoot.get("restaurant"), root),
+                    cb.equal(whRoot.get("dayOfWeek"), today),
+                    cb.lessThanOrEqualTo(whRoot.get("openTime"), now),
+                    cb.greaterThanOrEqualTo(whRoot.get("closeTime"), now)
+            );
+            return cb.exists(subquery);
+        };
     }
 }

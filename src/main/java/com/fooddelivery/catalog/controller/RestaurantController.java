@@ -39,9 +39,10 @@ public class RestaurantController {
             @RequestParam(required = false) String city,
             @RequestParam(required = false) String cuisineType,
             @RequestParam(required = false) BigDecimal minOrderAmount,
-            @RequestParam(required = false) Boolean active) {
+            @RequestParam(required = false) Boolean active,
+            @RequestParam(required = false) Boolean openNow) {
 
-        return restaurantService.getAllRestaurants(pageable, name, city, cuisineType, minOrderAmount, active);
+        return restaurantService.getAllRestaurants(pageable, name, city, cuisineType, minOrderAmount, active, openNow);
     }
 
     @Operation(

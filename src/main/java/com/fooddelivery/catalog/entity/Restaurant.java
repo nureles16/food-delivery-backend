@@ -2,6 +2,11 @@ package com.fooddelivery.catalog.entity;
 
 import jakarta.persistence.*;
 import java.math.BigDecimal;
+import java.time.DayOfWeek;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.UUID;
 
 @Entity
@@ -38,6 +43,9 @@ public class Restaurant {
     private Double deliveryZoneRadiusKm;
 
     private boolean isActive = true;
+
+    @OneToMany(mappedBy = "restaurant", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<WorkingHours> workingHours = new ArrayList<>();
 
     public Restaurant() {
     }
@@ -128,5 +136,13 @@ public class Restaurant {
 
     public void setActive(boolean active) {
         isActive = active;
+    }
+    public boolean isOpenNow() {
+        LocalDateTime now = LocalDateTime.now();
+        DayOfWeek today = now.getDayOfWeek();
+        LocalTime currentTime = now.toLocalTime();
+        return workingHours.stream()
+                .filter(wh -> wh.getDayOfWeek() == today)
+                .anyMatch(wh -> !currentTime.isBefore(wh.getOpenTime()) && !currentTime.isAfter(wh.getCloseTime()));
     }
 }

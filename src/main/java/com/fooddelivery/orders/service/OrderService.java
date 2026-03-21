@@ -4,6 +4,7 @@ import com.fooddelivery.catalog.entity.MenuItem;
 import com.fooddelivery.catalog.entity.Restaurant;
 import com.fooddelivery.catalog.repository.MenuItemRepository;
 import com.fooddelivery.catalog.repository.RestaurantRepository;
+import com.fooddelivery.catalog.service.RestaurantService;
 import com.fooddelivery.orders.dto.CreateOrderRequest;
 import com.fooddelivery.orders.dto.OrderItemDto;
 import com.fooddelivery.orders.entity.Order;
@@ -28,26 +29,27 @@ public class OrderService {
     private final MenuItemRepository menuItemRepository;
     private final ObjectMapper objectMapper;
     private final RestaurantRepository restaurantRepository;           // New field
+    private final RestaurantService restaurantService;
 
 
     public OrderService(OrderRepository orderRepository,
                         MenuItemRepository menuItemRepository,
                         RestaurantRepository restaurantRepository,
-                        ObjectMapper objectMapper) {
+                        ObjectMapper objectMapper, RestaurantService restaurantService) {
         this.orderRepository = orderRepository;
         this.menuItemRepository = menuItemRepository;
         this.objectMapper = objectMapper;
         this.restaurantRepository = restaurantRepository;
+        this.restaurantService = restaurantService;
     }
 
     public Order createOrder(CreateOrderRequest request, UUID clientId) {
 
-        // 1. Restaurant existence and active check
         Restaurant restaurant = restaurantRepository.findById(request.getRestaurantId())
                 .orElseThrow(() -> new RuntimeException("Restaurant not found"));
 
-        if (!restaurant.isActive()) {
-            throw new RuntimeException("Restaurant is not active");
+        if (!restaurant.isActive() || !restaurant.isOpenNow()) {
+            throw new RuntimeException("Restaurant is not active and closed at this time");
         }
 
         BigDecimal subtotal = BigDecimal.ZERO;
