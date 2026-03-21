@@ -75,6 +75,19 @@ public class RestaurantService {
     }
 
     private String generateSlug(String name) {
-        return name.toLowerCase().replace(" ", "-");
+        String baseSlug = name
+                .toLowerCase()
+                .trim()
+                .replaceAll("[^a-z0-9\\s-]", "") // убрать мусор
+                .replaceAll("\\s+", "-");        // пробелы → -
+
+        String slug = baseSlug;
+        int count = 1;
+
+        while (restaurantRepository.existsBySlug(slug)) {
+            slug = baseSlug + "-" + count++;
+        }
+
+        return slug;
     }
 }
