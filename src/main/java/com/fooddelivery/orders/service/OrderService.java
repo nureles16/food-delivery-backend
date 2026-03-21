@@ -1,7 +1,9 @@
 package com.fooddelivery.orders.service;
 
 import com.fooddelivery.catalog.entity.MenuItem;
+import com.fooddelivery.catalog.entity.Restaurant;
 import com.fooddelivery.catalog.repository.MenuItemRepository;
+import com.fooddelivery.catalog.repository.RestaurantRepository;
 import com.fooddelivery.orders.dto.CreateOrderRequest;
 import com.fooddelivery.orders.dto.OrderItemDto;
 import com.fooddelivery.orders.entity.Order;
@@ -24,28 +26,49 @@ public class OrderService {
     private final OrderRepository orderRepository;
     private final MenuItemRepository menuItemRepository;
     private final ObjectMapper objectMapper;
+    private final RestaurantRepository restaurantRepository;           // New field
+
 
     public OrderService(OrderRepository orderRepository,
                         MenuItemRepository menuItemRepository,
+                        RestaurantRepository restaurantRepository,
                         ObjectMapper objectMapper) {
         this.orderRepository = orderRepository;
         this.menuItemRepository = menuItemRepository;
         this.objectMapper = objectMapper;
+        this.restaurantRepository = restaurantRepository;
     }
 
     public Order createOrder(CreateOrderRequest request, UUID clientId) {
 
+        // 1. Restaurant existence and active check
+        Restaurant restaurant = restaurantRepository.findById(request.getRestaurantId())
+                .orElseThrow(() -> new RuntimeException("Restaurant not found"));
+
+        if (!restaurant.isActive()) {
+            throw new RuntimeException("Restaurant is not active");
+        }
+
         BigDecimal subtotal = BigDecimal.ZERO;
         List<Map<String, Object>> snapshotItems = new ArrayList<>();
 
+        // 2. Validate items: existence, belong to restaurant, availability
         for (OrderItemDto itemDto : request.getItems()) {
 
             MenuItem item = menuItemRepository.findById(itemDto.getItemId())
-                    .orElseThrow(() -> new RuntimeException("Menu item not found"));
+                    .orElseThrow(() -> new RuntimeException("Menu item not found: " + itemDto.getItemId()));
 
-            BigDecimal itemTotal =
-                    item.getPrice().multiply(BigDecimal.valueOf(itemDto.getQuantity()));
+            // Item must belong to the same restaurant
+            if (!item.getId().equals(request.getRestaurantId())) {
+                throw new RuntimeException("Item " + itemDto.getItemId() + " does not belong to the specified restaurant");
+            }
 
+            // Item must be available
+            if (!item.isAvailable()) {
+                throw new RuntimeException("Item " + item.getName() + " is currently unavailable");
+            }
+
+            BigDecimal itemTotal = item.getPrice().multiply(BigDecimal.valueOf(itemDto.getQuantity()));
             subtotal = subtotal.add(itemTotal);
 
             Map<String, Object> snapshot = new HashMap<>();
@@ -57,8 +80,13 @@ public class OrderService {
             snapshotItems.add(snapshot);
         }
 
-        String itemsJson;
+        // 3. Minimum order amount check
+        BigDecimal minOrderAmount = restaurant.getMinOrderAmount() != null ? restaurant.getMinOrderAmount() : BigDecimal.ZERO;
+        if (subtotal.compareTo(minOrderAmount) < 0) {
+            throw new RuntimeException("Order subtotal (" + subtotal + ") is below the minimum order amount of " + minOrderAmount);
+        }
 
+        String itemsJson;
         try {
             itemsJson = objectMapper.writeValueAsString(snapshotItems);
         } catch (Exception e) {
@@ -66,7 +94,6 @@ public class OrderService {
         }
 
         Order order = new Order();
-
         order.setOrderNumber(generateOrderNumber());
         order.setClientId(clientId);
         order.setRestaurantId(request.getRestaurantId());
@@ -75,7 +102,6 @@ public class OrderService {
         order.setSubtotal(subtotal);
 
         BigDecimal deliveryFee = BigDecimal.valueOf(100);
-
         order.setDeliveryFee(deliveryFee);
         order.setTotalAmount(subtotal.add(deliveryFee));
         order.setDeliveryAddress(request.getDeliveryAddress());
