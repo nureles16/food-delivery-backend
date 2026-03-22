@@ -9,12 +9,14 @@ public class AuthResponse {
     private String accessToken;
     @Schema(description = "JWT Refresh токен", example = "dGhpc2lzdGhlcmVmcmVzaHRva2Vu...")
     private String refreshToken;
+    private boolean forcePasswordChange;
 
     public AuthResponse() {}
 
-    public AuthResponse(String accessToken, String refreshToken) {
+    public AuthResponse(String accessToken, String refreshToken, boolean forcePasswordChange) {
         this.accessToken = accessToken;
         this.refreshToken = refreshToken;
+        this.forcePasswordChange = forcePasswordChange;
     }
 
     public String getAccessToken() {
