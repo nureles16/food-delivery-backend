@@ -102,4 +102,19 @@ public class JwtService {
             return false;
         }
     }
+
+    public RefreshToken validateRefreshToken(String token, UUID userId) {
+        RefreshToken refreshToken = refreshTokenRepository.findByToken(token)
+                .orElseThrow(() -> new IllegalArgumentException("Invalid refresh token"));
+        if (refreshToken.isRevoked()) {
+            throw new IllegalArgumentException("Refresh token revoked");
+        }
+        if (refreshToken.getExpiryDate().isBefore(LocalDateTime.now())) {
+            throw new IllegalArgumentException("Refresh token expired");
+        }
+        if (!refreshToken.getUser().getId().equals(userId)) {
+            throw new IllegalArgumentException("Refresh token does not belong to user");
+        }
+        return refreshToken;
+    }
 }
