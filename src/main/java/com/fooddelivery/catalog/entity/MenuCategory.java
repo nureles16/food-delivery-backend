@@ -57,8 +57,8 @@ public class MenuCategory {
         isActive = active;
     }
 
-    public Restaurant getRestaurant() {
-        return restaurant;
+    public UUID getRestaurant() {
+        return restaurant.getId();
     }
 
     public void setRestaurant(Restaurant restaurant) {

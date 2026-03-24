@@ -87,4 +87,11 @@ public class MenuItemController {
                 categoryId, name, minPrice, maxPrice, available, pageable);
         return ResponseEntity.ok(items);
     }
+
+    @DeleteMapping("/{id}")
+    @PreAuthorize("hasAuthority('CAFE_ADMIN')")
+    public ResponseEntity<Void> deleteMenuItem(@PathVariable UUID id) {
+        menuItemService.deleteMenuItem(id);
+        return ResponseEntity.noContent().build();
+    }
 }

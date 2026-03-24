@@ -37,6 +37,10 @@ public class MenuItemDto {
     @Schema(description = "Доступна ли позиция для заказа", example = "true")
     private boolean isAvailable;
 
+    private Integer weightGrams;
+    private String allergens;
+    private String tags;
+
     // Getters и Setters
     public UUID getCategoryId() { return categoryId; }
     public void setCategoryId(UUID categoryId) { this.categoryId = categoryId; }
@@ -55,4 +59,28 @@ public class MenuItemDto {
 
     public boolean isAvailable() { return isAvailable; }
     public void setAvailable(boolean available) { isAvailable = available; }
+
+    public Integer getWeightGrams() {
+        return weightGrams;
+    }
+
+    public void setWeightGrams(Integer weightGrams) {
+        this.weightGrams = weightGrams;
+    }
+
+    public String getAllergens() {
+        return allergens;
+    }
+
+    public void setAllergens(String allergens) {
+        this.allergens = allergens;
+    }
+
+    public String getTags() {
+        return tags;
+    }
+
+    public void setTags(String tags) {
+        this.tags = tags;
+    }
 }

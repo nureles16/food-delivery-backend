@@ -25,6 +25,14 @@ public class MenuItem {
     @Column(nullable = false)
     private BigDecimal price;
 
+    private Integer weightGrams;
+
+    @Column(columnDefinition = "jsonb")
+    private String allergens;
+
+    @Column(columnDefinition = "jsonb")
+    private String tags;
+
     public UUID getRestaurantId() {
         return restaurantId;
     }
@@ -82,4 +90,28 @@ public class MenuItem {
 
     public LocalDateTime getUpdatedAt() { return updatedAt; }
     public void setUpdatedAt(LocalDateTime updatedAt) { this.updatedAt = updatedAt; }
+
+    public Integer getWeightGrams() {
+        return weightGrams;
+    }
+
+    public void setWeightGrams(Integer weightGrams) {
+        this.weightGrams = weightGrams;
+    }
+
+    public String getAllergens() {
+        return allergens;
+    }
+
+    public void setAllergens(String allergens) {
+        this.allergens = allergens;
+    }
+
+    public String getTags() {
+        return tags;
+    }
+
+    public void setTags(String tags) {
+        this.tags = tags;
+    }
 }
