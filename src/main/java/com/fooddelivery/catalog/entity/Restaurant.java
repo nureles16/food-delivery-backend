@@ -1,12 +1,15 @@
 package com.fooddelivery.catalog.entity;
 
 import jakarta.persistence.*;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 import java.math.BigDecimal;
 import java.time.DayOfWeek;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 @Entity
@@ -46,6 +49,30 @@ public class Restaurant {
 
     @OneToMany(mappedBy = "restaurant", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<WorkingHours> workingHours = new ArrayList<>();
+
+    private Double latitude;
+    private Double longitude;
+
+    private String coverUrl;
+
+    @Column(length = 20)
+    private String phone;
+
+    @Column(length = 100)
+    private String email;
+
+    private boolean isVerified = false;
+
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(columnDefinition = "jsonb")
+    private Map<String, Object> paymentDetails;
+
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(columnDefinition = "jsonb")
+    private List<Map<String, Object>> certificates;
+
+    @Column(precision = 5, scale = 2)
+    private BigDecimal commissionRate = new BigDecimal("12.00");
 
     public Restaurant() {
     }
@@ -137,6 +164,87 @@ public class Restaurant {
     public void setActive(boolean active) {
         isActive = active;
     }
+
+    public List<WorkingHours> getWorkingHours() {
+        return workingHours;
+    }
+
+    public void setWorkingHours(List<WorkingHours> workingHours) {
+        this.workingHours = workingHours;
+    }
+
+    public Double getLatitude() {
+        return latitude;
+    }
+
+    public void setLatitude(Double latitude) {
+        this.latitude = latitude;
+    }
+
+    public Double getLongitude() {
+        return longitude;
+    }
+
+    public void setLongitude(Double longitude) {
+        this.longitude = longitude;
+    }
+
+    public String getCoverUrl() {
+        return coverUrl;
+    }
+
+    public void setCoverUrl(String coverUrl) {
+        this.coverUrl = coverUrl;
+    }
+
+    public String getPhone() {
+        return phone;
+    }
+
+    public void setPhone(String phone) {
+        this.phone = phone;
+    }
+
+    public String getEmail() {
+        return email;
+    }
+
+    public void setEmail(String email) {
+        this.email = email;
+    }
+
+    public boolean isVerified() {
+        return isVerified;
+    }
+
+    public void setVerified(boolean verified) {
+        isVerified = verified;
+    }
+
+    public Map<String, Object> getPaymentDetails() {
+        return paymentDetails;
+    }
+
+    public void setPaymentDetails(Map<String, Object> paymentDetails) {
+        this.paymentDetails = paymentDetails;
+    }
+
+    public List<Map<String, Object>> getCertificates() {
+        return certificates;
+    }
+
+    public void setCertificates(List<Map<String, Object>> certificates) {
+        this.certificates = certificates;
+    }
+
+    public BigDecimal getCommissionRate() {
+        return commissionRate;
+    }
+
+    public void setCommissionRate(BigDecimal commissionRate) {
+        this.commissionRate = commissionRate;
+    }
+
     public boolean isOpenNow() {
         LocalDateTime now = LocalDateTime.now();
         DayOfWeek today = now.getDayOfWeek();

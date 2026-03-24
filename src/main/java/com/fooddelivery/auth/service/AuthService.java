@@ -208,4 +208,12 @@ public class AuthService {
         token.setRevoked(true);
         refreshTokenRepository.save(token);
     }
+
+    public User getCurrentUser() {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        if (auth == null || !auth.isAuthenticated()) {
+            throw new RuntimeException("User not authenticated");
+        }
+        return (User) auth.getPrincipal();
+    }
 }

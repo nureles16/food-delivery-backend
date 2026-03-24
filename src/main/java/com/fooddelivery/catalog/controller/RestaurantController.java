@@ -1,6 +1,6 @@
 package com.fooddelivery.catalog.controller;
 
-import com.fooddelivery.catalog.dto.CreateRestaurantRequest;
+import com.fooddelivery.catalog.dto.RestaurantRequest;
 import com.fooddelivery.catalog.entity.Restaurant;
 import com.fooddelivery.catalog.service.RestaurantService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -42,7 +42,7 @@ public class RestaurantController {
             @RequestParam(required = false) Boolean active,
             @RequestParam(required = false) Boolean openNow) {
 
-        return restaurantService.getAllRestaurants(pageable, name, city, cuisineType, minOrderAmount, active, openNow);
+        return restaurantService.getAllRestaurants(pageable, name, city, cuisineType, minOrderAmount, true, openNow);
     }
 
     @Operation(
@@ -54,7 +54,7 @@ public class RestaurantController {
     @PostMapping("/admin/restaurants")
     @PreAuthorize("hasAuthority('SUPER_ADMIN')")
     public Restaurant createRestaurant(
-            @Valid @RequestBody CreateRestaurantRequest request) {
+            @Valid @RequestBody RestaurantRequest request) {
 
         return restaurantService.createRestaurant(request);
     }
@@ -73,7 +73,7 @@ public class RestaurantController {
             @Parameter(description = "ID ресторана", required = true)
             @PathVariable UUID id,
 
-            @Valid @RequestBody CreateRestaurantRequest request) {
+            @Valid @RequestBody RestaurantRequest request) {
 
         return restaurantService.updateRestaurant(id, request);
     }
