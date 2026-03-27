@@ -29,7 +29,6 @@ public class NotificationResponse {
     @Schema(description = "Дата последнего обновления уведомления", example = "2026-03-07T12:05:00")
     private LocalDateTime updatedAt;
 
-    // Getters and Setters
     public UUID getId() { return id; }
     public void setId(UUID id) { this.id = id; }
 

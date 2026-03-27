@@ -183,7 +183,7 @@ public class MenuItemService {
         MenuCategory category = menuCategoryRepository.findById(item.getCategoryId())
                 .orElseThrow(() -> new EntityNotFoundException("Category not found for menu item"));
 
-        Restaurant restaurant = restaurantRepository.findById(category.getRestaurant()) // исправленное поле
+        Restaurant restaurant = restaurantRepository.findById(category.getRestaurant())
                 .orElseThrow(() -> new EntityNotFoundException("Restaurant not found for category"));
 
         checkRestaurantAccess(currentUser, restaurant.getId());

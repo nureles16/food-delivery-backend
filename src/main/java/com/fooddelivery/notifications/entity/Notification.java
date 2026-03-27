@@ -10,7 +10,7 @@ public class Notification {
 
     @Id
     @GeneratedValue
-    private UUID id; // Primary Key
+    private UUID id;
 
     @Column(nullable = false)
     private UUID userId;
@@ -26,9 +26,6 @@ public class Notification {
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 
-    // ===================
-    // Getters и Setters
-    // ===================
     public UUID getId() {
         return id;
     }

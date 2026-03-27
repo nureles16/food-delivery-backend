@@ -51,7 +51,7 @@ public class OrderController {
             @Valid @RequestBody CreateOrderRequest request,
             @AuthenticationPrincipal CustomUserDetails userDetails
     ) {
-        UUID clientId = userDetails.getId(); // предполагается, что в CustomUserDetails есть метод getId()
+        UUID clientId = userDetails.getId();
         Order order = orderService.createOrder(request, clientId);
         return ResponseEntity.ok(order);
     }
@@ -202,7 +202,7 @@ public class OrderController {
             @AuthenticationPrincipal CustomUserDetails userDetails
     ) {
         UUID clientId = userDetails.getId();
-        TrackingInfoDto trackingInfo = orderService.getTrackingInfo(id, clientId);  // ✅ теперь метод есть
+        TrackingInfoDto trackingInfo = orderService.getTrackingInfo(id, clientId);
         return ResponseEntity.ok(trackingInfo);
     }
 }

@@ -25,7 +25,6 @@ public class CreatePaymentRequest {
     @Schema(description = "Комиссия платформы (если есть)", example = "50.50", required = false)
     private BigDecimal platformFee;
 
-    // ===== Getters & Setters =====
     public UUID getOrderId() { return orderId; }
     public void setOrderId(UUID orderId) { this.orderId = orderId; }
 

@@ -25,7 +25,6 @@ public class NotificationSpecification {
                 return cb.between(root.get("createdAt"), start, end);
             if (start != null)
                 return cb.greaterThanOrEqualTo(root.get("createdAt"), start);
-            // end != null
             return cb.lessThanOrEqualTo(root.get("createdAt"), end);
         };
     }

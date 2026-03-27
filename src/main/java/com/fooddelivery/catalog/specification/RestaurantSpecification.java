@@ -38,7 +38,6 @@ public class RestaurantSpecification {
                         cb.greaterThanOrEqualTo(root.get("minOrderAmount"), minOrderAmount);
     }
 
-    // Active flag (if the entity has such a field)
     public static Specification<Restaurant> isActive(Boolean active) {
         return (root, query, cb) ->
                 active == null ? cb.conjunction() :
@@ -47,7 +46,6 @@ public class RestaurantSpecification {
 
     public static Specification<Restaurant> isOpenNow() {
         return (root, query, cb) -> {
-            // Подзапрос для поиска интервалов работы, покрывающих текущее время
             LocalTime now = LocalTime.now();
             DayOfWeek today = LocalDate.now().getDayOfWeek();
 

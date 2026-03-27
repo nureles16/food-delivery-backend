@@ -34,7 +34,6 @@ public class PaymentResponse {
     @Schema(description = "Дата и время последнего обновления платежа", example = "2026-03-07T12:35:00")
     private LocalDateTime updatedAt;
 
-    // ===== Getters & Setters =====
     public UUID getId() { return id; }
     public void setId(UUID id) { this.id = id; }
 

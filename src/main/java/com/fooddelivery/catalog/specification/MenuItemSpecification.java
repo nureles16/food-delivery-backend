@@ -25,7 +25,6 @@ public class MenuItemSpecification {
                 return cb.between(root.get("price"), minPrice, maxPrice);
             if (minPrice != null)
                 return cb.greaterThanOrEqualTo(root.get("price"), minPrice);
-            // maxPrice != null
             return cb.lessThanOrEqualTo(root.get("price"), maxPrice);
         };
     }

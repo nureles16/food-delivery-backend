@@ -37,7 +37,6 @@ public class OrderSpecification {
                 return cb.between(root.get("createdAt"), startDate, endDate);
             if (startDate != null)
                 return cb.greaterThanOrEqualTo(root.get("createdAt"), startDate);
-            // endDate != null
             return cb.lessThanOrEqualTo(root.get("createdAt"), endDate);
         };
     }
@@ -49,7 +48,6 @@ public class OrderSpecification {
                 return cb.between(root.get("totalAmount"), minAmount, maxAmount);
             if (minAmount != null)
                 return cb.greaterThanOrEqualTo(root.get("totalAmount"), minAmount);
-            // maxAmount != null
             return cb.lessThanOrEqualTo(root.get("totalAmount"), maxAmount);
         };
     }

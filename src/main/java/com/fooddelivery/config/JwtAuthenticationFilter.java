@@ -73,7 +73,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             }
 
             UserDetails userDetails = org.springframework.security.core.userdetails.User.builder()
-                    .username(user.getId().toString())  // или email, зависит от логики
+                    .username(user.getId().toString())
                     .password(user.getPasswordHash())
                     .authorities(user.getRole().name())
                     .disabled(!user.isActive())
@@ -90,7 +90,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         } catch (RuntimeException e) {
             String userId = null;
             try {
-                userId = jwtService.extractUserId(jwt); // может упасть, если токен невалиден
+                userId = jwtService.extractUserId(jwt);
             } catch (Exception ignored) {}
             log.warn("JWT authentication failed for userId={}, error: {}", userId, e.getMessage());
 

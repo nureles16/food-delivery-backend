@@ -22,7 +22,6 @@ public class NotificationService {
         this.notificationRepository = notificationRepository;
     }
 
-    // Создать уведомление
     public NotificationResponse createNotification(CreateNotificationRequest request) {
         Notification notification = new Notification();
         notification.setUserId(request.getUserId());
@@ -35,7 +34,6 @@ public class NotificationService {
         return mapToResponse(saved);
     }
 
-    // Получить уведомления пользователя
     public Page<NotificationResponse> getUserNotifications(UUID userId,
                                                            Boolean read,
                                                            LocalDateTime startDate,
@@ -53,7 +51,6 @@ public class NotificationService {
                 .map(this::mapToResponse);
     }
 
-    // Отметить уведомление как прочитанное
     public NotificationResponse markAsRead(UUID notificationId) {
         Notification notification = notificationRepository.findById(notificationId)
                 .orElseThrow(() -> new RuntimeException("Notification not found"));
@@ -63,7 +60,6 @@ public class NotificationService {
         return mapToResponse(notificationRepository.save(notification));
     }
 
-    // Преобразование сущности в DTO
     private NotificationResponse mapToResponse(Notification notification) {
         NotificationResponse response = new NotificationResponse();
         response.setId(notification.getId());

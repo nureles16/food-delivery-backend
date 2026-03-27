@@ -24,7 +24,6 @@ public class CreateNotificationRequest {
     @Schema(description = "Текст уведомления", example = "Ваш заказ #123 готов к доставке", requiredMode = Schema.RequiredMode.REQUIRED)
     private String message;
 
-    // Getters and Setters
     public UUID getUserId() { return userId; }
     public void setUserId(UUID userId) { this.userId = userId; }
 

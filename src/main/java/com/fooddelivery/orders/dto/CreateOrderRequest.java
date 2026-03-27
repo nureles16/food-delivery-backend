@@ -25,7 +25,7 @@ public class CreateOrderRequest {
 
     @Schema(description = "Items in the order", requiredMode = Schema.RequiredMode.REQUIRED)
     @NotEmpty(message = "Список товаров не может быть пустым")
-    @Valid // 🔹 Чтобы валидация OrderItemDto сработала
+    @Valid
     private List<OrderItemDto> items;
 
     public UUID getRestaurantId() { return restaurantId; }

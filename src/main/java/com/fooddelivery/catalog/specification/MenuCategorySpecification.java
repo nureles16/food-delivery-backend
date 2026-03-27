@@ -26,7 +26,6 @@ public class MenuCategorySpecification {
                 return cb.between(root.get("position"), minPosition, maxPosition);
             if (minPosition != null)
                 return cb.greaterThanOrEqualTo(root.get("position"), minPosition);
-            // maxPosition != null
             return cb.lessThanOrEqualTo(root.get("position"), maxPosition);
         };
     }

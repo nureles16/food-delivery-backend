@@ -15,15 +15,14 @@ public class Address implements Serializable {
     private String city;
 
     @Size(max = 50)
-    private String apartment; // optional
+    private String apartment;
 
     private Double lat;
     private Double lng;
 
     @Size(max = 500)
-    private String comment; // optional
+    private String comment;
 
-    // getters and setters
     public String getStreet() { return street; }
     public void setStreet(String street) { this.street = street; }
 
