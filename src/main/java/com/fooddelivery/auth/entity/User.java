@@ -55,8 +55,6 @@ public class User {
         updatedAt = LocalDateTime.now();
     }
 
-    // getters & setters
-
     public UUID getId() {
         return id;
     }

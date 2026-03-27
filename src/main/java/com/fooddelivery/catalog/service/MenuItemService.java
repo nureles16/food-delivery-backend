@@ -57,8 +57,7 @@ public class MenuItemService {
         checkRestaurantAccess(currentUser, restaurant.getId());
 
         MenuItem item = new MenuItem();
-        item.setCategoryId(category.getId()); // используем ID категории
-        // заполняем остальные поля из dto
+        item.setCategoryId(category.getId());
         item.setName(dto.getName());
         item.setDescription(dto.getDescription());
         item.setPrice(dto.getPrice());

@@ -10,6 +10,7 @@ import com.fooddelivery.catalog.entity.WorkingHours;
 import com.fooddelivery.catalog.repository.RestaurantRepository;
 import com.fooddelivery.catalog.repository.WorkingHoursRepository;
 import com.fooddelivery.catalog.specification.RestaurantSpecification;
+import com.fooddelivery.orders.dto.Address;
 import jakarta.transaction.Transactional;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -210,5 +211,37 @@ public class RestaurantService {
         wh.setOpenTime(dto.getOpenTime());
         wh.setCloseTime(dto.getCloseTime());
         return wh;
+    }
+
+    public boolean isWithinDeliveryZone(UUID restaurantId, Address address) {
+        Restaurant restaurant = restaurantRepository.findById(restaurantId)
+                .orElseThrow(() -> new RuntimeException("Restaurant not found"));
+
+        if (restaurant.getDeliveryZoneRadiusKm() == null) {
+            return false;
+        }
+
+        if (address.getLat() == null || address.getLng() == null) {
+            return false;
+        }
+
+        double distance = calculateDistance(
+                restaurant.getLatitude(), restaurant.getLongitude(),
+                address.getLat(), address.getLng()
+        );
+
+        return distance <= restaurant.getDeliveryZoneRadiusKm();
+    }
+    private double calculateDistance(double lat1, double lon1, double lat2, double lon2) {
+        final int R = 6371;
+
+        double latDistance = Math.toRadians(lat2 - lat1);
+        double lonDistance = Math.toRadians(lon2 - lon1);
+        double a = Math.sin(latDistance / 2) * Math.sin(latDistance / 2)
+                + Math.cos(Math.toRadians(lat1)) * Math.cos(Math.toRadians(lat2))
+                * Math.sin(lonDistance / 2) * Math.sin(lonDistance / 2);
+        double c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+
+        return R * c;
     }
 }

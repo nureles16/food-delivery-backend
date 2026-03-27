@@ -9,4 +9,5 @@ import java.util.UUID;
 
 @Repository
 public interface MenuItemRepository extends JpaRepository<MenuItem, UUID>, JpaSpecificationExecutor<MenuItem> {
+    boolean existsByCategoryId(UUID id);
 }

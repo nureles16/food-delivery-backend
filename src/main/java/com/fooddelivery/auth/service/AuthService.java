@@ -166,7 +166,7 @@ public class AuthService {
             throw new RuntimeException("Account is disabled");
         }
         user.setPasswordHash(passwordEncoder.encode(request.getNewPassword()));
-        user.setForcePasswordChange(false);  // если был флаг принудительной смены, снимаем
+        user.setForcePasswordChange(false);
         user.setUpdatedAt(LocalDateTime.now());
         userRepository.save(user);
 

@@ -41,8 +41,7 @@ public class Order {
     @Column(name = "total_amount")
     private BigDecimal totalAmount;
 
-//    @Column(name = "delivery_address")
-//    private String deliveryAddress;
+    private BigDecimal platformCommission;
 
     @Column(name = "created_at")
     private LocalDateTime createdAt;
@@ -51,10 +50,31 @@ public class Order {
     @Column(columnDefinition = "jsonb")
     private Address deliveryAddress;
 
+    @Column(name = "cafe_confirmed_at")
+    private LocalDateTime cafeConfirmedAt;
+
+    @Column(name = "delivered_at")
+    private LocalDateTime deliveredAt;
+
+    @Column(name = "payment_id")
+    private UUID paymentId;
+
+    @Column(name = "yandex_delivery_id")
+    private String yandexDeliveryId;
+
+    @Column(name = "yandex_tracking_url")
+    private String yandexTrackingUrl;
+
+    @Column(name = "estimated_delivery_at")
+    private LocalDateTime estimatedDeliveryAt;
+
+    @Column(name = "cancelled_reason")
+    private String cancelledReason;
+
+    private LocalDateTime paidAt;
+
     public Order() {
     }
-
-    // getters
 
     public UUID getId() {
         return id;
@@ -99,8 +119,6 @@ public class Order {
         return createdAt;
     }
 
-    // setters
-
     public void setOrderNumber(String orderNumber) {
         this.orderNumber = orderNumber;
     }
@@ -137,5 +155,77 @@ public class Order {
 
     public void setCreatedAt(LocalDateTime createdAt) {
         this.createdAt = createdAt;
+    }
+
+    public BigDecimal getPlatformCommission() {
+        return platformCommission;
+    }
+
+    public void setPlatformCommission(BigDecimal platformCommission) {
+        this.platformCommission = platformCommission;
+    }
+
+    public LocalDateTime getCafeConfirmedAt() {
+        return cafeConfirmedAt;
+    }
+
+    public void setCafeConfirmedAt(LocalDateTime cafeConfirmedAt) {
+        this.cafeConfirmedAt = cafeConfirmedAt;
+    }
+
+    public LocalDateTime getDeliveredAt() {
+        return deliveredAt;
+    }
+
+    public void setDeliveredAt(LocalDateTime deliveredAt) {
+        this.deliveredAt = deliveredAt;
+    }
+
+    public UUID getPaymentId() {
+        return paymentId;
+    }
+
+    public void setPaymentId(UUID paymentId) {
+        this.paymentId = paymentId;
+    }
+
+    public String getYandexDeliveryId() {
+        return yandexDeliveryId;
+    }
+
+    public void setYandexDeliveryId(String yandexDeliveryId) {
+        this.yandexDeliveryId = yandexDeliveryId;
+    }
+
+    public String getYandexTrackingUrl() {
+        return yandexTrackingUrl;
+    }
+
+    public void setYandexTrackingUrl(String yandexTrackingUrl) {
+        this.yandexTrackingUrl = yandexTrackingUrl;
+    }
+
+    public LocalDateTime getEstimatedDeliveryAt() {
+        return estimatedDeliveryAt;
+    }
+
+    public void setEstimatedDeliveryAt(LocalDateTime estimatedDeliveryAt) {
+        this.estimatedDeliveryAt = estimatedDeliveryAt;
+    }
+
+    public String getCancelledReason() {
+        return cancelledReason;
+    }
+
+    public void setCancelledReason(String cancelledReason) {
+        this.cancelledReason = cancelledReason;
+    }
+
+    public LocalDateTime getPaidAt() {
+        return paidAt;
+    }
+
+    public void setPaidAt(LocalDateTime paidAt) {
+        this.paidAt = paidAt;
     }
 }

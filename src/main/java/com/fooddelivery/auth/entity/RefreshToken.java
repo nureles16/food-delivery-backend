@@ -17,7 +17,7 @@ public class RefreshToken {
 
     @ManyToOne
     @JoinColumn(name = "user_id", nullable = false)
-    private User user;  // вот здесь нужен метод getUser()
+    private User user;
 
     @Column(name = "expiry_date", nullable = false)
     private LocalDateTime expiryDate;
@@ -25,7 +25,6 @@ public class RefreshToken {
     @Column(name = "revoked", nullable = false)
     private boolean revoked = false;
 
-    // getters и setters
     public UUID getId() { return id; }
     public void setId(UUID id) { this.id = id; }
 

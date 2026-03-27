@@ -63,7 +63,6 @@ public class MenuItem {
         updatedAt = LocalDateTime.now();
     }
 
-    // Getters и Setters
     public UUID getId() { return id; }
     public void setId(UUID id) { this.id = id; }
 

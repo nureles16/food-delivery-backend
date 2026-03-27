@@ -11,7 +11,7 @@ public class ForgotPasswordRequest {
     @NotBlank(message = "Email обязателен")
     @Email(message = "Некорректный email")
     private String email;
-    // --- Геттеры и сеттеры ---
+
     public String getEmail() { return email; }
     public void setEmail(String email) { this.email = email; }
 }

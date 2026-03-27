@@ -41,7 +41,6 @@ public class MenuItemDto {
     private String allergens;
     private String tags;
 
-    // Getters и Setters
     public UUID getCategoryId() { return categoryId; }
     public void setCategoryId(UUID categoryId) { this.categoryId = categoryId; }
 
