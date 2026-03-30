@@ -4,6 +4,7 @@ import com.fooddelivery.payments.dto.CreatePaymentRequest;
 import com.fooddelivery.payments.dto.PaymentResponse;
 import com.fooddelivery.payments.entity.Payment;
 import com.fooddelivery.payments.entity.PaymentStatus;
+import com.fooddelivery.payments.entity.PayoutStatus;
 import com.fooddelivery.payments.repository.PaymentRepository;
 import com.fooddelivery.payments.specification.PaymentSpecification;
 import org.springframework.data.jpa.domain.Specification;
@@ -14,6 +15,7 @@ import java.time.LocalDateTime;
 import java.util.UUID;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.transaction.annotation.Transactional;
 
 @Service
 public class PaymentService {
@@ -25,12 +27,22 @@ public class PaymentService {
     }
 
     public PaymentResponse createPayment(CreatePaymentRequest request) {
+        if (paymentRepository.existsByOrderId(request.getOrderId())) {
+            throw new RuntimeException("Payment for order " + request.getOrderId() + " already exists");
+        }
         Payment payment = new Payment();
         payment.setOrderId(request.getOrderId());
         payment.setClientId(request.getClientId());
+        payment.setRestaurantId(request.getRestaurantId());
         payment.setAmount(request.getAmount());
-        payment.setPlatformFee(request.getPlatformFee() != null ? request.getPlatformFee() : BigDecimal.ZERO);
-        payment.setStatus(PaymentStatus.PENDING);
+        payment.setDeliveryFee(request.getDeliveryFee());
+        payment.setPlatformFee(request.getPlatformFee());
+        payment.setRestaurantPayout(request.getAmount()
+                .subtract(request.getDeliveryFee())
+                .subtract(request.getPlatformFee()));
+        payment.setProvider("FREEDOM_PAY");
+        payment.setStatus(PaymentStatus.CREATED);
+        payment.setPayoutStatus(PayoutStatus.PENDING);
 
         Payment saved = paymentRepository.save(payment);
         return mapToResponse(saved);
@@ -89,5 +101,59 @@ public class PaymentService {
         response.setCreatedAt(payment.getCreatedAt());
         response.setUpdatedAt(payment.getUpdatedAt());
         return response;
+    }
+    @Transactional
+    public PaymentResponse refund(UUID paymentId, String reason) {
+        Payment payment = paymentRepository.findById(paymentId)
+                .orElseThrow(() -> new RuntimeException(String.valueOf(paymentId)));
+
+        if (payment.getStatus() != PaymentStatus.COMPLETED) {
+            throw new IllegalStateException("Refund allowed only for COMPLETED payments");
+        }
+        if (payment.getStatus() == PaymentStatus.REFUNDED) {
+            throw new IllegalStateException("Payment already refunded");
+        }
+
+
+        payment.setStatus(PaymentStatus.REFUNDED);
+        payment.setRefundedAt(LocalDateTime.now());
+
+        Payment updated = paymentRepository.save(payment);
+        return mapToResponse(updated);
+    }
+
+
+    public Page<PaymentResponse> getPayouts(PayoutStatus status, Pageable pageable) {
+        Specification<Payment> spec = Specification.where(PaymentSpecification.payoutStatusEquals(status));
+        return paymentRepository.findAll(spec, pageable).map(this::mapToResponse);
+    }
+
+    @Transactional
+    public PaymentResponse markPayoutAsPaid(UUID paymentId) {
+        Payment payment = paymentRepository.findById(paymentId)
+                .orElseThrow(() -> new RuntimeException(String.valueOf(paymentId)));
+
+        if (payment.getPayoutStatus() != PayoutStatus.PENDING) {
+            throw new IllegalStateException("Payout already processed");
+        }
+
+        payment.setPayoutStatus(PayoutStatus.PAID_OUT);
+        payment.setPayoutAt(LocalDateTime.now());
+
+        Payment updated = paymentRepository.save(payment);
+        return mapToResponse(updated);
+    }
+
+    public Page<PaymentResponse> getCafePayments(UUID restaurantId,
+                                                 PaymentStatus status,
+                                                 LocalDateTime startDate,
+                                                 LocalDateTime endDate,
+                                                 Pageable pageable) {
+        Specification<Payment> spec = Specification
+                .where(PaymentSpecification.restaurantIdEquals(restaurantId))
+                .and(PaymentSpecification.statusEquals(status))
+                .and(PaymentSpecification.createdAtBetween(startDate, endDate));
+
+        return paymentRepository.findAll(spec, pageable).map(this::mapToResponse);
     }
 }

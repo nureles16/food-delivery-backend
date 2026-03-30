@@ -16,6 +16,8 @@ public class CreatePaymentRequest {
     @Schema(description = "UUID клиента, создающего платеж", example = "1c9d4f00-0c1b-4b7b-8f2d-3f1d5f1d1c1c", requiredMode = Schema.RequiredMode.REQUIRED)
     private UUID clientId;
 
+    private UUID restaurantId;
+    private BigDecimal deliveryFee;
     @NotNull
     @DecimalMin(value = "0.0", inclusive = false)
     @Schema(description = "Сумма платежа", example = "500.50", requiredMode = Schema.RequiredMode.REQUIRED)
@@ -35,5 +37,21 @@ public class CreatePaymentRequest {
     public void setAmount(BigDecimal amount) { this.amount = amount; }
 
     public BigDecimal getPlatformFee() { return platformFee; }
-    public void setPlatformFee(BigDecimal platformFee) { this.platformFee = platformFee; }
+    public void setPlatformFee(BigDecimal platformFee) { this.platformFee = platformFee;}
+
+    public UUID getRestaurantId() {
+        return restaurantId;
+    }
+
+    public void setRestaurantId(UUID restaurantId) {
+        this.restaurantId = restaurantId;
+    }
+
+    public BigDecimal getDeliveryFee() {
+        return deliveryFee;
+    }
+
+    public void setDeliveryFee(BigDecimal deliveryFee) {
+        this.deliveryFee = deliveryFee;
+    }
 }

@@ -2,6 +2,7 @@ package com.fooddelivery.payments.specification;
 
 import com.fooddelivery.payments.entity.Payment;
 import com.fooddelivery.payments.entity.PaymentStatus;
+import com.fooddelivery.payments.entity.PayoutStatus;
 import org.springframework.data.jpa.domain.Specification;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -14,6 +15,9 @@ public class PaymentSpecification {
                 clientId == null ? cb.conjunction() : cb.equal(root.get("clientId"), clientId);
     }
 
+    public static Specification<Payment> payoutStatusEquals(PayoutStatus status) {
+        return (root, query, cb) -> status == null ? cb.conjunction() : cb.equal(root.get("payoutStatus"), status);
+    }
     public static Specification<Payment> orderIdEquals(UUID orderId) {
         return (root, query, cb) ->
                 orderId == null ? cb.conjunction() : cb.equal(root.get("orderId"), orderId);
@@ -44,5 +48,9 @@ public class PaymentSpecification {
                 return cb.greaterThanOrEqualTo(root.get("createdAt"), startDate);
             return cb.lessThanOrEqualTo(root.get("createdAt"), endDate);
         };
+    }
+
+    public static Specification<Payment> restaurantIdEquals(UUID restaurantId) {
+        return (root, query, cb) -> restaurantId == null ? cb.conjunction() : cb.equal(root.get("restaurantId"), restaurantId);
     }
 }

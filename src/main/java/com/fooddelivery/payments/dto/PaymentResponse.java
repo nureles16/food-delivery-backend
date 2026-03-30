@@ -1,6 +1,7 @@
 package com.fooddelivery.payments.dto;
 
 import com.fooddelivery.payments.entity.PaymentStatus;
+import com.fooddelivery.payments.entity.PayoutStatus;
 import io.swagger.v3.oas.annotations.media.Schema;
 
 import java.math.BigDecimal;
@@ -9,7 +10,12 @@ import java.util.UUID;
 
 @Schema(description = "Ответ с информацией о платеже")
 public class PaymentResponse {
-
+    private UUID restaurantId;
+    private BigDecimal deliveryFee;
+    private BigDecimal restaurantPayout;
+    private PayoutStatus payoutStatus;
+    private String provider;
+    private String providerPaymentId;
     @Schema(description = "UUID платежа", example = "3fa85f64-5717-4562-b3fc-2c963f66afa6")
     private UUID id;
 
@@ -54,6 +60,54 @@ public class PaymentResponse {
 
     public LocalDateTime getCreatedAt() { return createdAt; }
     public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
+
+    public UUID getRestaurantId() {
+        return restaurantId;
+    }
+
+    public void setRestaurantId(UUID restaurantId) {
+        this.restaurantId = restaurantId;
+    }
+
+    public BigDecimal getDeliveryFee() {
+        return deliveryFee;
+    }
+
+    public void setDeliveryFee(BigDecimal deliveryFee) {
+        this.deliveryFee = deliveryFee;
+    }
+
+    public BigDecimal getRestaurantPayout() {
+        return restaurantPayout;
+    }
+
+    public void setRestaurantPayout(BigDecimal restaurantPayout) {
+        this.restaurantPayout = restaurantPayout;
+    }
+
+    public PayoutStatus getPayoutStatus() {
+        return payoutStatus;
+    }
+
+    public void setPayoutStatus(PayoutStatus payoutStatus) {
+        this.payoutStatus = payoutStatus;
+    }
+
+    public String getProvider() {
+        return provider;
+    }
+
+    public void setProvider(String provider) {
+        this.provider = provider;
+    }
+
+    public String getProviderPaymentId() {
+        return providerPaymentId;
+    }
+
+    public void setProviderPaymentId(String providerPaymentId) {
+        this.providerPaymentId = providerPaymentId;
+    }
 
     public LocalDateTime getUpdatedAt() { return updatedAt; }
     public void setUpdatedAt(LocalDateTime updatedAt) { this.updatedAt = updatedAt; }
