@@ -11,4 +11,5 @@ import java.util.UUID;
 public interface MenuCategoryRepository extends JpaRepository<MenuCategory, UUID>, JpaSpecificationExecutor<MenuCategory> {
         List<MenuCategory> findByRestaurantId(UUID restaurantId);
 
+    List<MenuCategory> findByRestaurantIdAndIsActiveTrueOrderByPositionAsc(UUID restaurantId);
 }

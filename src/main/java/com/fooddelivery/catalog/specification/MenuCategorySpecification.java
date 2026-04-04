@@ -29,4 +29,8 @@ public class MenuCategorySpecification {
             return cb.lessThanOrEqualTo(root.get("position"), maxPosition);
         };
     }
+
+    public static Specification<MenuCategory> isActiveEquals(boolean isActive) {
+        return (root, query, cb) -> cb.equal(root.get("isActive"), isActive);
+    }
 }

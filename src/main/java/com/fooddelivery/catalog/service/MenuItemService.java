@@ -51,10 +51,16 @@ public class MenuItemService {
         MenuCategory category = menuCategoryRepository.findById(dto.getCategoryId())
                 .orElseThrow(() -> new EntityNotFoundException("Category not found: " + dto.getCategoryId()));
 
+        if (!category.isActive()) {
+            throw new IllegalStateException("Category is inactive, cannot add items");
+        }
+
         Restaurant restaurant = restaurantRepository.findById(category.getRestaurant())
                 .orElseThrow(() -> new EntityNotFoundException("Restaurant not found for category"));
 
         checkRestaurantAccess(currentUser, restaurant.getId());
+
+        validateRestaurantActive(restaurant);
 
         MenuItem item = new MenuItem();
         item.setCategoryId(category.getId());
@@ -77,20 +83,27 @@ public class MenuItemService {
         MenuItem item = menuItemRepository.findById(id)
                 .orElseThrow(() -> new EntityNotFoundException("MenuItem not found: " + id));
 
+        MenuCategory oldCategory = menuCategoryRepository.findById(item.getCategoryId())
+                .orElseThrow(() -> new EntityNotFoundException("Category not found for current menu item"));
+        Restaurant oldRestaurant = restaurantRepository.findById(oldCategory.getRestaurant())
+                .orElseThrow(() -> new EntityNotFoundException("Restaurant not found for old category"));
+
+        checkRestaurantAccess(currentUser, oldRestaurant.getId());
+
+        validateRestaurantActive(oldRestaurant);
+
         UUID newCategoryId = dto.getCategoryId();
         if (newCategoryId != null && !newCategoryId.equals(item.getCategoryId())) {
             MenuCategory newCategory = menuCategoryRepository.findById(newCategoryId)
                     .orElseThrow(() -> new EntityNotFoundException("Category not found: " + newCategoryId));
-            Restaurant restaurant = restaurantRepository.findById(newCategory.getRestaurant())
-                    .orElseThrow(() -> new EntityNotFoundException("Restaurant not found for category"));
-            checkRestaurantAccess(currentUser, restaurant.getId());
+            if (!newCategory.isActive()) {
+                throw new IllegalStateException("Target category is inactive");
+            }
+            Restaurant newRestaurant = restaurantRepository.findById(newCategory.getRestaurant())
+                    .orElseThrow(() -> new EntityNotFoundException("Restaurant not found for new category"));
+            checkRestaurantAccess(currentUser, newRestaurant.getId());
+            validateRestaurantActive(newRestaurant);
             item.setCategoryId(newCategoryId);
-        } else {
-            MenuCategory existingCategory = menuCategoryRepository.findById(item.getCategoryId())
-                    .orElseThrow(() -> new EntityNotFoundException("Category not found: " + item.getCategoryId()));
-            Restaurant restaurant = restaurantRepository.findById(existingCategory.getRestaurant())
-                    .orElseThrow(() -> new EntityNotFoundException("Restaurant not found for category"));
-            checkRestaurantAccess(currentUser, restaurant.getId());
         }
 
         item.setName(dto.getName());
@@ -119,6 +132,7 @@ public class MenuItemService {
                 .orElseThrow(() -> new EntityNotFoundException("Restaurant not found for category"));
 
         checkRestaurantAccess(currentUser, restaurant.getId());
+        validateRestaurantActive(restaurant);
 
         item.setAvailable(isAvailable);
         return menuItemRepository.save(item);
@@ -130,6 +144,13 @@ public class MenuItemService {
                                         BigDecimal maxPrice,
                                         Boolean available,
                                         Pageable pageable) {
+        MenuCategory category = menuCategoryRepository.findById(categoryId)
+                .orElseThrow(() -> new EntityNotFoundException("Category not found"));
+        Restaurant restaurant = restaurantRepository.findById(category.getRestaurant())
+                .orElseThrow(() -> new EntityNotFoundException("Restaurant not found"));
+        if (!restaurant.isActive() || !restaurant.isVerified()) {
+            return Page.empty();
+        }
 
         Specification<MenuItem> spec = Specification
                 .where(MenuItemSpecification.categoryIdEquals(categoryId))
@@ -138,19 +159,6 @@ public class MenuItemService {
                 .and(MenuItemSpecification.availableEquals(available));
 
         return menuItemRepository.findAll(spec, pageable);
-    }
-
-    @NotNull
-    private MenuItem getMenuItem(MenuItemDto dto, MenuItem item) {
-        item.setName(dto.getName());
-        item.setDescription(dto.getDescription());
-        item.setPrice(dto.getPrice());
-        item.setImageUrl(dto.getImageUrl());
-        item.setAvailable(dto.isAvailable());
-        item.setWeightGrams(dto.getWeightGrams());
-        item.setAllergens(dto.getAllergens());
-        item.setTags(dto.getTags());
-        return menuItemRepository.save(item);
     }
 
     private void checkRestaurantAccess(User user, UUID restaurantId) {
@@ -187,8 +195,20 @@ public class MenuItemService {
                 .orElseThrow(() -> new EntityNotFoundException("Restaurant not found for category"));
 
         checkRestaurantAccess(currentUser, restaurant.getId());
+        validateRestaurantActive(restaurant);
 
         menuItemRepository.delete(item);
         log.info("MenuItem {} deleted by user {}", id, currentUser.getId());
+    }
+
+    private void validateRestaurantActive(Restaurant restaurant) {
+        if (!restaurant.isActive()) {
+            log.warn("Restaurant {} is inactive, operation forbidden", restaurant.getId());
+            throw new IllegalStateException("Restaurant is deactivated by admin");
+        }
+        if (!restaurant.isVerified()) {
+            log.warn("Restaurant {} is not verified, operation forbidden", restaurant.getId());
+            throw new IllegalStateException("Restaurant is not verified yet");
+        }
     }
 }

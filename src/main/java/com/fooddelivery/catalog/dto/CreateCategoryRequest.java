@@ -20,9 +20,19 @@ public class CreateCategoryRequest {
     @NotNull
     private UUID restaurantId;
 
+    @NotNull
+    private Boolean isActive;
+
     @Schema(description = "Позиция категории в списке меню", example = "1")
     @Min(value = 0, message = "Позиция не может быть отрицательной")
     private Integer position;
+
+    public CreateCategoryRequest(String name, UUID restaurantId, Boolean isActive, Integer position) {
+        this.name = name;
+        this.restaurantId = restaurantId;
+        this.isActive = isActive;
+        this.position = position;
+    }
 
     public String getName() {
         return name;
@@ -46,5 +56,13 @@ public class CreateCategoryRequest {
 
     public void setPosition(Integer position) {
         this.position = position;
+    }
+
+    public Boolean getActive() {
+        return isActive;
+    }
+
+    public void setActive(Boolean active) {
+        isActive = active;
     }
 }

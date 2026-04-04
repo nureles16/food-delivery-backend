@@ -16,7 +16,7 @@ public class MenuCategory {
 
     private Integer position;
 
-    private boolean isActive = true;
+    private Boolean isActive = true;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "restaurant_id", nullable = false)

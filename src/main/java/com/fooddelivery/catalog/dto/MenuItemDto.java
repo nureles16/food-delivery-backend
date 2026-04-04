@@ -41,6 +41,18 @@ public class MenuItemDto {
     private String allergens;
     private String tags;
 
+    public MenuItemDto(UUID categoryId, String name, String description, BigDecimal price, String imageUrl, Integer weightGrams, String allergens, String tags) {
+        this.categoryId = categoryId;
+        this.name = name;
+        this.description = description;
+        this.price = price;
+        this.imageUrl = imageUrl;
+        this.isAvailable = isAvailable;
+        this.weightGrams = weightGrams;
+        this.allergens = allergens;
+        this.tags = tags;
+    }
+
     public UUID getCategoryId() { return categoryId; }
     public void setCategoryId(UUID categoryId) { this.categoryId = categoryId; }
 
