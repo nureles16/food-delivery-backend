@@ -7,8 +7,6 @@ import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Service;
 
-import java.util.UUID;
-
 @Service
 public class CustomUserDetailsService implements UserDetailsService {
 
@@ -30,21 +28,4 @@ public class CustomUserDetailsService implements UserDetailsService {
         return new CustomUserDetails(user);
     }
 
-    public UserDetails loadUserById(String userId) throws UsernameNotFoundException {
-        UUID uuid;
-        try {
-            uuid = UUID.fromString(userId);
-        } catch (IllegalArgumentException e) {
-            throw new UsernameNotFoundException("Invalid user ID format: " + userId);
-        }
-
-        User user = userRepository.findById(uuid)
-                .orElseThrow(() -> new UsernameNotFoundException("User not found with id: " + userId));
-
-        if (!user.isActive()) {
-            throw new UsernameNotFoundException("User account is disabled");
-        }
-
-        return new CustomUserDetails(user);
-    }
 }
