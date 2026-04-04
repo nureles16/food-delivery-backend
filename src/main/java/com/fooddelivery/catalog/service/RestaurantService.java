@@ -11,6 +11,7 @@ import com.fooddelivery.catalog.repository.RestaurantRepository;
 import com.fooddelivery.catalog.repository.WorkingHoursRepository;
 import com.fooddelivery.catalog.specification.RestaurantSpecification;
 import com.fooddelivery.orders.dto.Address;
+import jakarta.persistence.EntityNotFoundException;
 import jakarta.transaction.Transactional;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -21,8 +22,10 @@ import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
+import java.text.Normalizer;
 import java.util.List;
 import java.util.UUID;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 @Service
@@ -148,13 +151,17 @@ public class RestaurantService {
                 .orElseThrow(() -> {
                     log.error("Restaurant not found: id={}, userId={}",
                             id, getCurrentUserIdSafely());
-                    return new RuntimeException("Restaurant not found: " + id);
+                    return new EntityNotFoundException("Restaurant not found: " + id);
                 });
     }
 
     public Restaurant getRestaurantBySlug(String slug) {
         return restaurantRepository.findBySlug(slug)
-                .orElseThrow(() -> new RuntimeException("Restaurant not found"));
+                .orElseThrow(() -> {
+                    log.error("Restaurant not found by slug: {}, userId={}",
+                            slug, getCurrentUserIdSafely());
+                    return new EntityNotFoundException("Restaurant not found: " + slug);
+                });
     }
 
     @Transactional
@@ -180,20 +187,80 @@ public class RestaurantService {
     }
 
     private String generateSlug(String name) {
-        String baseSlug = name
+        if (name == null || name.isBlank()) {
+            return "restaurant-" + UUID.randomUUID().toString().substring(0, 8);
+        }
+
+        String transliterated = transliterate(name);
+
+        String baseSlug = transliterated
                 .toLowerCase()
                 .trim()
                 .replaceAll("[^a-z0-9\\s-]", "")
                 .replaceAll("\\s+", "-");
 
-        String slug = baseSlug;
-        int count = 1;
-
-        while (restaurantRepository.existsBySlug(slug)) {
-            slug = baseSlug + "-" + count++;
+        if (baseSlug.isEmpty()) {
+            baseSlug = "restaurant";
         }
 
+        baseSlug = baseSlug.replaceAll("^-+|-+$", "");
+
+        String slug = baseSlug;
+        int counter = 1;
+        while (restaurantRepository.existsBySlug(slug)) {
+            slug = baseSlug + "-" + counter++;
+        }
         return slug;
+    }
+
+    private String transliterate(String input) {
+        if (input == null) return "";
+
+        String normalized = Normalizer.normalize(input, Normalizer.Form.NFD);
+        Pattern pattern = Pattern.compile("\\p{M}");
+        String withoutDiacritics = pattern.matcher(normalized).replaceAll("");
+
+        char[] chars = withoutDiacritics.toCharArray();
+        StringBuilder sb = new StringBuilder();
+        for (char c : chars) {
+            switch (c) {
+                case 'а': sb.append("a"); break;
+                case 'б': sb.append("b"); break;
+                case 'в': sb.append("v"); break;
+                case 'г': sb.append("g"); break;
+                case 'д': sb.append("d"); break;
+                case 'е': sb.append("e"); break;
+                case 'ё': sb.append("yo"); break;
+                case 'ж': sb.append("zh"); break;
+                case 'з': sb.append("z"); break;
+                case 'и': sb.append("i"); break;
+                case 'й': sb.append("y"); break;
+                case 'к': sb.append("k"); break;
+                case 'л': sb.append("l"); break;
+                case 'м': sb.append("m"); break;
+                case 'н': sb.append("n"); break;
+                case 'о': sb.append("o"); break;
+                case 'п': sb.append("p"); break;
+                case 'р': sb.append("r"); break;
+                case 'с': sb.append("s"); break;
+                case 'т': sb.append("t"); break;
+                case 'у': sb.append("u"); break;
+                case 'ф': sb.append("f"); break;
+                case 'х': sb.append("kh"); break;
+                case 'ц': sb.append("ts"); break;
+                case 'ч': sb.append("ch"); break;
+                case 'ш': sb.append("sh"); break;
+                case 'щ': sb.append("sch"); break;
+                case 'ъ': sb.append(""); break;
+                case 'ы': sb.append("y"); break;
+                case 'ь': sb.append(""); break;
+                case 'э': sb.append("e"); break;
+                case 'ю': sb.append("yu"); break;
+                case 'я': sb.append("ya"); break;
+                default: sb.append(c);
+            }
+        }
+        return sb.toString();
     }
 
     private String getCurrentUserIdSafely() {
@@ -215,7 +282,7 @@ public class RestaurantService {
 
     public boolean isWithinDeliveryZone(UUID restaurantId, Address address) {
         Restaurant restaurant = restaurantRepository.findById(restaurantId)
-                .orElseThrow(() -> new RuntimeException("Restaurant not found"));
+                .orElseThrow(() -> new EntityNotFoundException("Restaurant not found: " + restaurantId));
 
         if (restaurant.getDeliveryZoneRadiusKm() == null) {
             return false;

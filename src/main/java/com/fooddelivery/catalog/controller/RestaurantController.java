@@ -77,4 +77,9 @@ public class RestaurantController {
 
         return restaurantService.updateRestaurant(id, request);
     }
+
+    @GetMapping("/restaurants/{slug}")
+    public Restaurant getRestaurantBySlug(@PathVariable String slug) {
+        return restaurantService.getRestaurantBySlug(slug);
+    }
 }
