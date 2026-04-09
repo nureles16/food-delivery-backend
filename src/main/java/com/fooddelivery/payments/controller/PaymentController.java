@@ -1,12 +1,10 @@
 package com.fooddelivery.payments.controller;
 
 import com.fooddelivery.auth.security.CustomUserDetails;
-import com.fooddelivery.payments.dto.CreatePaymentRequest;
-import com.fooddelivery.payments.dto.InitiatePaymentResponse;
-import com.fooddelivery.payments.dto.PaymentResponse;
-import com.fooddelivery.payments.dto.WebhookPayload;
+import com.fooddelivery.payments.dto.*;
 import com.fooddelivery.payments.entity.PaymentStatus;
 import com.fooddelivery.payments.entity.PayoutStatus;
+import com.fooddelivery.payments.exceptions.BadRequestException;
 import com.fooddelivery.payments.service.PaymentService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -66,19 +64,20 @@ public class PaymentController {
     @Operation(summary = "Инициировать возврат платежа (только суперадмин)")
     @PostMapping("/{paymentId}/refund")
     @PreAuthorize("hasRole('SUPER_ADMIN')")
-    public ResponseEntity<PaymentResponse> refundPayment(@PathVariable UUID paymentId) {
-        PaymentResponse response = paymentService.refund(paymentId);
+    public ResponseEntity<PaymentResponse> refundPayment(
+            @PathVariable UUID paymentId,
+            @Valid @RequestBody RefundRequest refundRequest) {
+        PaymentResponse response = paymentService.refund(paymentId, refundRequest.getCancelledReason());
         return ResponseEntity.ok(response);
     }
 
     @Operation(summary = "Автоматический возврат по отмене заказа (internal)")
     @PostMapping("/internal/refund-by-order/{orderId}")
-    public ResponseEntity<PaymentResponse> refundByOrder(@PathVariable UUID orderId) {
-        log.info("Auto-refund requested by OrderService for orderId={}", orderId);
-        PaymentResponse response = paymentService.refundByOrderId(orderId);
-        if (response == null) {
-            return ResponseEntity.notFound().build();
-        }
+    public ResponseEntity<PaymentResponse> refundByOrder(
+            @PathVariable UUID orderId,
+            @Valid @RequestBody RefundRequest refundRequest) {
+        log.info("Auto-refund requested by OrderService for orderId={}, reason={}", orderId, refundRequest.getCancelledReason());
+        PaymentResponse response = paymentService.refundByOrderId(orderId, refundRequest.getCancelledReason());
         return ResponseEntity.ok(response);
     }
 
@@ -113,15 +112,10 @@ public class PaymentController {
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size) {
 
+        validateDateRange(startDate, endDate);
+        validateAmountRange(minAmount, maxAmount);
+
         Pageable pageable = PageRequest.of(page, size, Sort.by("createdAt").descending());
-
-        if (minAmount != null && maxAmount != null && minAmount.compareTo(maxAmount) > 0) {
-            throw new IllegalArgumentException("minAmount cannot be greater than maxAmount");
-        }
-        if (startDate != null && endDate != null && startDate.isAfter(endDate)) {
-            throw new IllegalArgumentException("startDate cannot be after endDate");
-        }
-
         return ResponseEntity.ok(paymentService.getMyPayments(
                 orderId, status, minAmount, maxAmount, startDate, endDate, pageable));
     }
@@ -137,13 +131,10 @@ public class PaymentController {
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size) {
 
+        validateDateRange(startDate, endDate);
+
         UUID restaurantId = extractRestaurantIdFromAuthentication(authentication);
         Pageable pageable = PageRequest.of(page, size, Sort.by("createdAt").descending());
-
-        if (startDate != null && endDate != null && startDate.isAfter(endDate)) {
-            throw new IllegalArgumentException("startDate cannot be after endDate");
-        }
-
         return ResponseEntity.ok(paymentService.getCafePayments(
                 restaurantId, status, startDate, endDate, pageable));
     }
@@ -158,16 +149,28 @@ public class PaymentController {
     }
 
 
+    private void validateDateRange(LocalDateTime startDate, LocalDateTime endDate) {
+        if (startDate != null && endDate != null && startDate.isAfter(endDate)) {
+            throw new BadRequestException("startDate cannot be after endDate");
+        }
+    }
+
+    private void validateAmountRange(BigDecimal minAmount, BigDecimal maxAmount) {
+        if (minAmount != null && maxAmount != null && minAmount.compareTo(maxAmount) > 0) {
+            throw new BadRequestException("minAmount cannot be greater than maxAmount");
+        }
+    }
+
     private UUID extractRestaurantIdFromAuthentication(Authentication authentication) {
         Object principal = authentication.getPrincipal();
         if (principal instanceof CustomUserDetails) {
             CustomUserDetails userDetails = (CustomUserDetails) principal;
             UUID cafeId = userDetails.getCafeId();
             if (cafeId == null) {
-                throw new SecurityException("Пользователь не привязан к кафе");
+                throw new BadRequestException("User is not associated with any cafe");
             }
             return cafeId;
         }
-        throw new SecurityException("Неверный объект аутентификации");
+        throw new BadRequestException("Invalid authentication principal");
     }
 }

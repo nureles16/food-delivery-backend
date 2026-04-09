@@ -5,9 +5,9 @@ import com.fooddelivery.payments.dto.*;
 import com.fooddelivery.payments.entity.Payment;
 import com.fooddelivery.payments.entity.PaymentStatus;
 import com.fooddelivery.payments.entity.PayoutStatus;
+import com.fooddelivery.payments.exceptions.*;
 import com.fooddelivery.payments.repository.PaymentRepository;
 import com.fooddelivery.payments.specification.PaymentSpecification;
-import jakarta.persistence.OptimisticLockException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -15,7 +15,6 @@ import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
-import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
@@ -37,11 +36,15 @@ import java.util.UUID;
 public class PaymentService {
 
     private static final Logger log = LoggerFactory.getLogger(PaymentService.class);
+
     private final PaymentRepository paymentRepository;
     private final ApplicationEventPublisher eventPublisher;
 
     @Value("${freedompay.webhook.secret:test_secret}")
     private String webhookSecret;
+
+    @Value("${platform.commission.percent:12}")
+    private int commissionPercent;
 
     public PaymentService(PaymentRepository paymentRepository,
                           ApplicationEventPublisher eventPublisher) {
@@ -55,7 +58,7 @@ public class PaymentService {
 
         if (request.getClientId() == null) {
             log.error("ClientId is required for payment initiation, orderId={}", request.getOrderId());
-            throw new IllegalArgumentException("clientId must be provided by OrderService");
+            throw new BadRequestException("clientId must be provided by OrderService");
         }
 
         Optional<Payment> existing = paymentRepository.findByOrderId(request.getOrderId());
@@ -67,21 +70,21 @@ public class PaymentService {
         }
 
         if (request.getAmount() == null || request.getDeliveryFee() == null || request.getPlatformFee() == null) {
-            throw new IllegalArgumentException("Amount, deliveryFee and platformFee must be non-null");
+            throw new BadRequestException("Amount, deliveryFee and platformFee must be non-null");
         }
         if (request.getAmount().compareTo(BigDecimal.ZERO) <= 0) {
-            throw new IllegalArgumentException("Amount must be positive");
+            throw new BadRequestException("Amount must be positive");
         }
 
         BigDecimal subtotal = request.getAmount().subtract(request.getDeliveryFee());
-        BigDecimal expectedPlatformFee = subtotal.multiply(BigDecimal.valueOf(0.12))
-                .setScale(2, RoundingMode.HALF_UP);
+        BigDecimal expectedPlatformFee = subtotal.multiply(BigDecimal.valueOf(commissionPercent))
+                .divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP);
         if (request.getPlatformFee().compareTo(expectedPlatformFee) != 0) {
             log.error("Platform fee mismatch for orderId={}: expected={}, got={}",
                     request.getOrderId(), expectedPlatformFee, request.getPlatformFee());
-            throw new IllegalArgumentException(
-                    String.format("Platform fee must be exactly 12%% of subtotal (%.2f KGS), but received %.2f KGS",
-                            expectedPlatformFee, request.getPlatformFee()));
+            throw new BadRequestException(
+                    String.format("Platform fee must be exactly %d%% of subtotal (%.2f KGS), but received %.2f KGS",
+                            commissionPercent, expectedPlatformFee, request.getPlatformFee()));
         }
         Payment payment = new Payment();
         payment.setOrderId(request.getOrderId());
@@ -95,7 +98,7 @@ public class PaymentService {
                 .subtract(request.getDeliveryFee())
                 .subtract(request.getPlatformFee());
         if (restaurantPayout.compareTo(BigDecimal.ZERO) < 0) {
-            throw new IllegalArgumentException("Delivery fee + platform fee exceed total amount");
+            throw new BadRequestException("Delivery fee + platform fee exceed total amount");
         }
         payment.setRestaurantPayout(restaurantPayout);
 
@@ -117,7 +120,7 @@ public class PaymentService {
     public void processWebhook(WebhookPayload payload, String receivedHmacSignature) {
         if (!verifyHmacSignature(payload, receivedHmacSignature)) {
             log.error("Invalid HMAC signature for webhook: providerPaymentId={}", payload.getProviderPaymentId());
-            throw new SecurityException("Invalid HMAC signature");
+            throw new ForbiddenException("Invalid HMAC signature");
         }
 
         UUID orderId = payload.getOrderId();
@@ -127,90 +130,66 @@ public class PaymentService {
         log.info("Processing webhook: orderId={}, providerPaymentId={}, newStatus={}",
                 orderId, providerPaymentId, newStatusFromProvider);
 
-        int attempt = 0;
-        long delayMs = 100;
-        while (attempt < 3) {
-            try {
-                Payment payment = paymentRepository.findByOrderIdWithLock(orderId)
-                        .orElseThrow(() -> new IllegalArgumentException("Payment not found for orderId: " + orderId));
+        Payment payment = paymentRepository.findByOrderIdWithLock(orderId)
+                .orElseThrow(() -> new NotFoundException("Payment not found for orderId: " + orderId));
 
-                if (payment.getStatus().isFinal()) {
-                    log.warn("Webhook ignored: payment {} already in final status {}. Provider status={}",
-                            payment.getId(), payment.getStatus(), newStatusFromProvider);
-                    return;
-                }
+        if (payment.getStatus().isFinal()) {
+            log.warn("Webhook ignored: payment {} already in final status {}. Provider status={}",
+                    payment.getId(), payment.getStatus(), newStatusFromProvider);
+            return;
+        }
 
-                if (payment.getProviderPaymentId() != null) {
-                    if (!payment.getProviderPaymentId().equals(providerPaymentId)) {
-                        log.error("ProviderPaymentId mismatch for orderId={}: stored={}, received={}",
-                                orderId, payment.getProviderPaymentId(), providerPaymentId);
-                        throw new IllegalStateException("ProviderPaymentId already set to different value");
-                    }
-                    log.debug("Duplicate or updating webhook for providerPaymentId={}, current status={}",
-                            providerPaymentId, payment.getStatus());
-                } else {
-                    payment.setProviderPaymentId(providerPaymentId);
-                    payment.setProviderResponse(payload.getRawResponse());
-                }
-
-                PaymentStatus newStatus = mapProviderStatus(newStatusFromProvider);
-                PaymentStatus currentStatus = payment.getStatus();
-
-                if (!isValidStatusTransition(currentStatus, newStatus)) {
-                    log.error("Invalid status transition from {} to {} for paymentId={}, orderId={}",
-                            currentStatus, newStatus, payment.getId(), orderId);
-                    throw new IllegalStateException(
-                            String.format("Invalid status transition from %s to %s", currentStatus, newStatus));
-                }
-
-                if (currentStatus != newStatus) {
-                    payment.setStatus(newStatus);
-                    if (newStatus == PaymentStatus.REFUNDED) {
-                        payment.setRefundedAt(LocalDateTime.now());
-                    }
-                    log.info("Payment status updated: paymentId={}, orderId={}, {} -> {}",
-                            payment.getId(), orderId, currentStatus, newStatus);
-                }
-
-                paymentRepository.save(payment);
-
-                if (newStatus == PaymentStatus.COMPLETED && currentStatus != PaymentStatus.COMPLETED) {
-                    eventPublisher.publishEvent(new PaymentCompletedEvent(payment.getOrderId(), payment.getId()));
-                    log.info("Published PAYMENT_COMPLETED event for orderId={}", orderId);
-                } else if (newStatus == PaymentStatus.REFUNDED && currentStatus != PaymentStatus.REFUNDED) {
-                    eventPublisher.publishEvent(new PaymentRefundedEvent(payment.getOrderId(), payment.getId()));
-                    log.info("Published REFUNDED event for orderId={}", orderId);
-                } else if (newStatus == PaymentStatus.FAILED && currentStatus != PaymentStatus.FAILED) {
-                    eventPublisher.publishEvent(new PaymentFailedEvent(payment.getOrderId(), payment.getId()));
-                    log.warn("Payment failed for orderId={}, paymentId={}. Published FAILED event.", orderId, payment.getId());
-                }
-
-                return;
-
-            } catch (OptimisticLockException e) {
-                attempt++;
-                log.warn("Optimistic lock exception for orderId={}, attempt {}/3. Retrying in {} ms...",
-                        orderId, attempt, delayMs);
-                if (attempt >= 3) {
-                    log.error("Failed to process webhook after {} attempts for orderId={}", attempt, orderId);
-                    throw new RuntimeException("Concurrent webhook processing failed", e);
-                }
-                try {
-                    Thread.sleep(delayMs);
-                    delayMs *= 2;
-                } catch (InterruptedException ie) {
-                    Thread.currentThread().interrupt();
-                    throw new RuntimeException("Webhook processing interrupted", ie);
-                }
+        if (payment.getProviderPaymentId() != null) {
+            if (!payment.getProviderPaymentId().equals(providerPaymentId)) {
+                log.error("ProviderPaymentId mismatch for orderId={}: stored={}, received={}",
+                        orderId, payment.getProviderPaymentId(), providerPaymentId);
+                throw new ConflictException("ProviderPaymentId already set to different value");
             }
+            log.debug("Duplicate or updating webhook for providerPaymentId={}, current status={}",
+                    providerPaymentId, payment.getStatus());
+        } else {
+            payment.setProviderPaymentId(providerPaymentId);
+            payment.setProviderResponse(payload.getRawResponse());
+        }
+
+        PaymentStatus newStatus = mapProviderStatus(newStatusFromProvider);
+        PaymentStatus currentStatus = payment.getStatus();
+
+        if (!isValidStatusTransition(currentStatus, newStatus)) {
+            log.error("Invalid status transition from {} to {} for paymentId={}, orderId={}",
+                    currentStatus, newStatus, payment.getId(), orderId);
+            throw new IllegalStateException(
+                    String.format("Invalid status transition from %s to %s", currentStatus, newStatus));
+        }
+
+        if (currentStatus != newStatus) {
+            payment.setStatus(newStatus);
+            if (newStatus == PaymentStatus.REFUNDED) {
+                payment.setRefundedAt(LocalDateTime.now());
+            }
+            log.info("Payment status updated: paymentId={}, orderId={}, {} -> {}",
+                    payment.getId(), orderId, currentStatus, newStatus);
+        }
+
+        paymentRepository.save(payment);
+
+        if (newStatus == PaymentStatus.COMPLETED && currentStatus != PaymentStatus.COMPLETED) {
+            eventPublisher.publishEvent(new PaymentCompletedEvent(payment.getOrderId(), payment.getId()));
+            log.info("Published PAYMENT_COMPLETED event for orderId={}", orderId);
+        } else if (newStatus == PaymentStatus.REFUNDED && currentStatus != PaymentStatus.REFUNDED) {
+            eventPublisher.publishEvent(new PaymentRefundedEvent(payment.getOrderId(), payment.getId()));
+            log.info("Published REFUNDED event for orderId={}", orderId);
+        } else if (newStatus == PaymentStatus.FAILED && currentStatus != PaymentStatus.FAILED) {
+            eventPublisher.publishEvent(new PaymentFailedEvent(payment.getOrderId(), payment.getId()));
+            log.warn("Payment failed for orderId={}, paymentId={}. Published FAILED event.", orderId, payment.getId());
         }
     }
 
     @Transactional
-    public PaymentResponse refund(UUID paymentId) {
-        log.debug("Refund requested for paymentId={}", paymentId);
+    public PaymentResponse refund(UUID paymentId, String cancelledReason) {
+        log.debug("Refund requested for paymentId={}, reason={}", paymentId, cancelledReason);
         Payment payment = paymentRepository.findById(paymentId)
-                .orElseThrow(() -> new IllegalArgumentException("Payment not found: " + paymentId));
+                .orElseThrow(() -> new NotFoundException("Payment not found: " + paymentId));
 
         if (payment.getStatus() == PaymentStatus.REFUNDED) {
             log.warn("Refund called for already refunded paymentId={}", paymentId);
@@ -219,11 +198,11 @@ public class PaymentService {
 
         if (payment.getStatus() != PaymentStatus.COMPLETED) {
             log.error("Refund not allowed for paymentId={} in status={}", paymentId, payment.getStatus());
-            throw new IllegalStateException("Refund allowed only for COMPLETED payments");
+            throw new BadRequestException("Refund allowed only for COMPLETED payments");
         }
         if (payment.getPayoutStatus() == PayoutStatus.PAID_OUT) {
             log.error("Cannot refund paymentId={} because payout already done", paymentId);
-            throw new IllegalStateException("Cannot refund after payout to restaurant");
+            throw new ConflictException("Cannot refund after payout to restaurant");
         }
 
         payment.setStatus(PaymentStatus.REFUNDED);
@@ -236,14 +215,10 @@ public class PaymentService {
     }
 
     @Transactional
-    public PaymentResponse refundByOrderId(UUID orderId) {
-        log.info("Auto-refund requested for orderId={}", orderId);
-        Optional<Payment> paymentOpt = paymentRepository.findByOrderId(orderId);
-        if (paymentOpt.isEmpty()) {
-            log.warn("No payment found for orderId={}, cannot auto-refund", orderId);
-            return null;
-        }
-        Payment payment = paymentOpt.get();
+    public PaymentResponse refundByOrderId(UUID orderId, String cancelledReason) {
+        log.info("Auto-refund requested for orderId={}, reason={}", orderId, cancelledReason);
+        Payment payment = paymentRepository.findByOrderId(orderId)
+                .orElseThrow(() -> new NotFoundException("No payment found for orderId: " + orderId));
 
         if (payment.getStatus() == PaymentStatus.REFUNDED || payment.getStatus() == PaymentStatus.FAILED) {
             log.info("Payment for orderId={} already in status {}, skipping refund", orderId, payment.getStatus());
@@ -251,26 +226,26 @@ public class PaymentService {
         }
 
         if (payment.getStatus() != PaymentStatus.COMPLETED && payment.getStatus() != PaymentStatus.PROCESSING) {
-            log.info("Payment for orderId={} is not completed (status={}), marking as CANCELLED", orderId, payment.getStatus());
+            log.info("Payment for orderId={} is not completed (status={}), marking as FAILED", orderId, payment.getStatus());
             payment.setStatus(PaymentStatus.FAILED);
             paymentRepository.save(payment);
             return mapToResponse(payment);
         }
 
-        return refund(payment.getId());
+        return refund(payment.getId(), cancelledReason);
     }
 
     @Transactional
     public PaymentResponse markPayoutAsPaid(UUID paymentId) {
         log.debug("Mark payout as paid for paymentId={}", paymentId);
         Payment payment = paymentRepository.findById(paymentId)
-                .orElseThrow(() -> new IllegalArgumentException("Payment not found: " + paymentId));
+                .orElseThrow(() -> new NotFoundException("Payment not found: " + paymentId));
 
         if (payment.getStatus() != PaymentStatus.COMPLETED) {
-            throw new IllegalStateException("Payout can be marked only for COMPLETED payments");
+            throw new BadRequestException("Payout can be marked only for COMPLETED payments");
         }
         if (payment.getPayoutStatus() != PayoutStatus.PENDING) {
-            throw new IllegalStateException("Payout already processed for payment " + paymentId);
+            throw new ConflictException("Payout already processed for payment " + paymentId);
         }
         payment.setPayoutStatus(PayoutStatus.PAID_OUT);
         payment.setPayoutAt(LocalDateTime.now());
@@ -293,7 +268,7 @@ public class PaymentService {
         return paymentRepository.findAll(spec, pageable).map(this::mapToResponse);
     }
 
-     public Page<PaymentResponse> getPaymentsByOrder(UUID orderId, PaymentStatus status,
+    public Page<PaymentResponse> getPaymentsByOrder(UUID orderId, PaymentStatus status,
                                                     BigDecimal minAmount, BigDecimal maxAmount,
                                                     LocalDateTime startDate, LocalDateTime endDate,
                                                     Pageable pageable) {
@@ -317,7 +292,7 @@ public class PaymentService {
         UUID usersRestaurantId = getRestaurantIdForCurrentUser();
         if (!usersRestaurantId.equals(restaurantId)) {
             log.error("User {} attempted to access payments of restaurant {}", currentUserId, restaurantId);
-            throw new AccessDeniedException("You do not have access to this restaurant's payments");
+            throw new ForbiddenException("You do not have access to this restaurant's payments");
         }
 
         Specification<Payment> spec = Specification
@@ -326,6 +301,26 @@ public class PaymentService {
                 .and(PaymentSpecification.createdAtBetween(startDate, endDate));
         return paymentRepository.findAll(spec, pageable).map(this::mapToResponse);
     }
+
+    public PaymentResponse getPaymentById(UUID paymentId, Authentication authentication) {
+        Payment payment = paymentRepository.findById(paymentId)
+                .orElseThrow(() -> new NotFoundException("Payment not found"));
+
+        CustomUserDetails user = (CustomUserDetails) authentication.getPrincipal();
+        String role = user.getRole();
+        UUID userId = user.getId();
+
+        boolean isOwner = payment.getClientId().equals(userId);
+        boolean isCafeAdmin = "CAFE_ADMIN".equals(role) && payment.getRestaurantId().equals(user.getCafeId());
+        boolean isSuperAdmin = "SUPER_ADMIN".equals(role);
+
+        if (!(isOwner || isCafeAdmin || isSuperAdmin)) {
+            throw new ForbiddenException("No access to this payment");
+        }
+
+        return mapToResponse(payment);
+    }
+
 
     private PaymentResponse mapToResponse(Payment payment) {
         PaymentResponse response = new PaymentResponse();
@@ -397,67 +392,48 @@ public class PaymentService {
     private UUID getCurrentUserId() {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         if (authentication == null || !authentication.isAuthenticated()) {
-            throw new SecurityException("User not authenticated");
+            throw new UnauthorizedException("User not authenticated");
         }
         Object principal = authentication.getPrincipal();
         if (principal instanceof CustomUserDetails) {
             return ((CustomUserDetails) principal).getId();
         }
-        throw new SecurityException("Unable to extract user ID from security context");
+        throw new UnauthorizedException("Unable to extract user ID from security context");
     }
 
     private UUID getCurrentClientId() {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         if (authentication == null || !authentication.isAuthenticated()) {
-            throw new SecurityException("User not authenticated");
+            throw new UnauthorizedException("User not authenticated");
         }
         Object principal = authentication.getPrincipal();
         if (principal instanceof CustomUserDetails) {
             CustomUserDetails user = (CustomUserDetails) principal;
             if (!"CLIENT".equals(user.getRole()) && !"SUPER_ADMIN".equals(user.getRole())) {
-                throw new AccessDeniedException("Only clients can access their payments");
+                throw new ForbiddenException("Only clients can access their payments");
             }
             return user.getId();
         }
-        throw new SecurityException("Unable to extract client ID from security context");
+        throw new UnauthorizedException("Unable to extract client ID from security context");
     }
 
     private UUID getRestaurantIdForCurrentUser() {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         if (authentication == null || !authentication.isAuthenticated()) {
-            throw new SecurityException("User not authenticated");
+            throw new UnauthorizedException("User not authenticated");
         }
         Object principal = authentication.getPrincipal();
         if (principal instanceof CustomUserDetails) {
             CustomUserDetails user = (CustomUserDetails) principal;
             if (!"CAFE_ADMIN".equals(user.getRole())) {
-                throw new AccessDeniedException("Only cafe admins can access restaurant payments");
+                throw new ForbiddenException("Only cafe admins can access restaurant payments");
             }
             UUID cafeId = user.getCafeId();
             if (cafeId == null) {
-                throw new IllegalStateException("Cafe admin has no associated restaurant");
+                throw new ForbiddenException("Cafe admin has no associated restaurant");
             }
             return cafeId;
         }
-        throw new SecurityException("Unable to extract restaurant ID from security context");
-    }
-
-    public PaymentResponse getPaymentById(UUID paymentId, Authentication authentication) {
-        Payment payment = paymentRepository.findById(paymentId)
-                .orElseThrow(() -> new IllegalArgumentException("Payment not found"));
-
-        CustomUserDetails user = (CustomUserDetails) authentication.getPrincipal();
-        String role = user.getRole();
-        UUID userId = user.getId();
-
-        boolean isOwner = payment.getClientId().equals(userId);
-        boolean isCafeAdmin = "CAFE_ADMIN".equals(role) && payment.getRestaurantId().equals(user.getCafeId());
-        boolean isSuperAdmin = "SUPER_ADMIN".equals(role);
-
-        if (!(isOwner || isCafeAdmin || isSuperAdmin)) {
-            throw new AccessDeniedException("No access to this payment");
-        }
-
-        return mapToResponse(payment);
+        throw new UnauthorizedException("Unable to extract restaurant ID from security context");
     }
 }
