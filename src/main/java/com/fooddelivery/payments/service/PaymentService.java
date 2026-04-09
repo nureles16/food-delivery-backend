@@ -2,6 +2,7 @@ package com.fooddelivery.payments.service;
 
 import com.fooddelivery.auth.security.CustomUserDetails;
 import com.fooddelivery.exceptions.*;
+import com.fooddelivery.mapper.PaymentMapper;
 import com.fooddelivery.payments.dto.*;
 import com.fooddelivery.payments.entity.Payment;
 import com.fooddelivery.payments.entity.PaymentStatus;
@@ -39,6 +40,7 @@ public class PaymentService {
 
     private final PaymentRepository paymentRepository;
     private final ApplicationEventPublisher eventPublisher;
+    private final PaymentMapper paymentMapper;
 
     @Value("${freedompay.webhook.secret:test_secret}")
     private String webhookSecret;
@@ -47,9 +49,11 @@ public class PaymentService {
     private int commissionPercent;
 
     public PaymentService(PaymentRepository paymentRepository,
-                          ApplicationEventPublisher eventPublisher) {
+                          ApplicationEventPublisher eventPublisher,
+                          PaymentMapper paymentMapper) {
         this.paymentRepository = paymentRepository;
         this.eventPublisher = eventPublisher;
+        this.paymentMapper = paymentMapper;
     }
 
     @Transactional
@@ -193,7 +197,7 @@ public class PaymentService {
 
         if (payment.getStatus() == PaymentStatus.REFUNDED) {
             log.warn("Refund called for already refunded paymentId={}", paymentId);
-            return mapToResponse(payment);
+            return paymentMapper.toResponse(payment);
         }
 
         if (payment.getStatus() != PaymentStatus.COMPLETED) {
@@ -211,7 +215,7 @@ public class PaymentService {
         log.info("Payment refunded: paymentId={}, orderId={}", updated.getId(), updated.getOrderId());
 
         eventPublisher.publishEvent(new PaymentRefundedEvent(payment.getOrderId(), payment.getId()));
-        return mapToResponse(updated);
+        return paymentMapper.toResponse(updated);
     }
 
     @Transactional
@@ -222,14 +226,14 @@ public class PaymentService {
 
         if (payment.getStatus() == PaymentStatus.REFUNDED || payment.getStatus() == PaymentStatus.FAILED) {
             log.info("Payment for orderId={} already in status {}, skipping refund", orderId, payment.getStatus());
-            return mapToResponse(payment);
+            return paymentMapper.toResponse(payment);
         }
 
         if (payment.getStatus() != PaymentStatus.COMPLETED && payment.getStatus() != PaymentStatus.PROCESSING) {
             log.info("Payment for orderId={} is not completed (status={}), marking as FAILED", orderId, payment.getStatus());
             payment.setStatus(PaymentStatus.FAILED);
             paymentRepository.save(payment);
-            return mapToResponse(payment);
+            return paymentMapper.toResponse(payment);
         }
 
         return refund(payment.getId(), cancelledReason);
@@ -251,7 +255,7 @@ public class PaymentService {
         payment.setPayoutAt(LocalDateTime.now());
         Payment updated = paymentRepository.save(payment);
         log.info("Payout marked as paid for paymentId={}", updated.getId());
-        return mapToResponse(updated);
+        return paymentMapper.toResponse(updated);
     }
 
     public Page<PaymentResponse> getMyPayments(UUID orderId, PaymentStatus status,
@@ -265,7 +269,7 @@ public class PaymentService {
                 .and(PaymentSpecification.statusEquals(status))
                 .and(PaymentSpecification.amountBetween(minAmount, maxAmount))
                 .and(PaymentSpecification.createdAtBetween(startDate, endDate));
-        return paymentRepository.findAll(spec, pageable).map(this::mapToResponse);
+        return paymentRepository.findAll(spec, pageable).map(paymentMapper::toResponse);
     }
 
     public Page<PaymentResponse> getPaymentsByOrder(UUID orderId, PaymentStatus status,
@@ -277,12 +281,12 @@ public class PaymentService {
                 .and(PaymentSpecification.statusEquals(status))
                 .and(PaymentSpecification.amountBetween(minAmount, maxAmount))
                 .and(PaymentSpecification.createdAtBetween(startDate, endDate));
-        return paymentRepository.findAll(spec, pageable).map(this::mapToResponse);
+        return paymentRepository.findAll(spec, pageable).map(paymentMapper::toResponse);
     }
 
     public Page<PaymentResponse> getPayouts(PayoutStatus status, Pageable pageable) {
         Specification<Payment> spec = Specification.where(PaymentSpecification.payoutStatusEquals(status));
-        return paymentRepository.findAll(spec, pageable).map(this::mapToResponse);
+        return paymentRepository.findAll(spec, pageable).map(paymentMapper::toResponse);
     }
 
     public Page<PaymentResponse> getCafePayments(UUID restaurantId, PaymentStatus status,
@@ -299,7 +303,7 @@ public class PaymentService {
                 .where(PaymentSpecification.restaurantIdEquals(restaurantId))
                 .and(PaymentSpecification.statusEquals(status))
                 .and(PaymentSpecification.createdAtBetween(startDate, endDate));
-        return paymentRepository.findAll(spec, pageable).map(this::mapToResponse);
+        return paymentRepository.findAll(spec, pageable).map(paymentMapper::toResponse);
     }
 
     public PaymentResponse getPaymentById(UUID paymentId, Authentication authentication) {
@@ -318,26 +322,9 @@ public class PaymentService {
             throw new ForbiddenException("No access to this payment");
         }
 
-        return mapToResponse(payment);
+        return paymentMapper.toResponse(payment);
     }
 
-
-    private PaymentResponse mapToResponse(Payment payment) {
-        PaymentResponse response = new PaymentResponse();
-        response.setId(payment.getId());
-        response.setOrderId(payment.getOrderId());
-        response.setClientId(payment.getClientId());
-        response.setAmount(payment.getAmount());
-        response.setPlatformFee(payment.getPlatformFee());
-        response.setDeliveryFee(payment.getDeliveryFee());
-        response.setRestaurantPayout(payment.getRestaurantPayout());
-        response.setStatus(payment.getStatus());
-        response.setPayoutStatus(payment.getPayoutStatus());
-        response.setProviderPaymentId(payment.getProviderPaymentId());
-        response.setCreatedAt(payment.getCreatedAt());
-        response.setUpdatedAt(payment.getUpdatedAt());
-        return response;
-    }
 
     private boolean isValidStatusTransition(PaymentStatus current, PaymentStatus next) {
         if (current == next) return true;
@@ -387,7 +374,6 @@ public class PaymentService {
     private String buildPaymentUrl(Payment payment) {
         return "https://sandbox.freedompay.kg/pay/" + payment.getId();
     }
-
 
     private UUID getCurrentUserId() {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();

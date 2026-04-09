@@ -74,6 +74,24 @@ public class Restaurant {
     @Column(precision = 5, scale = 2)
     private BigDecimal commissionRate = new BigDecimal("12.00");
 
+    @Column(precision = 10, scale = 2)
+    private BigDecimal deliveryBaseFee = BigDecimal.valueOf(50);
+
+    @Column(precision = 10, scale = 2)
+    private BigDecimal deliveryFeePerKm = BigDecimal.valueOf(20);
+
+    @Column(precision = 10, scale = 2)
+    private BigDecimal freeDeliveryThreshold = BigDecimal.valueOf(500);
+
+    public BigDecimal getDeliveryBaseFee() { return deliveryBaseFee; }
+    public void setDeliveryBaseFee(BigDecimal deliveryBaseFee) { this.deliveryBaseFee = deliveryBaseFee; }
+
+    public BigDecimal getDeliveryFeePerKm() { return deliveryFeePerKm; }
+    public void setDeliveryFeePerKm(BigDecimal deliveryFeePerKm) { this.deliveryFeePerKm = deliveryFeePerKm; }
+
+    public BigDecimal getFreeDeliveryThreshold() { return freeDeliveryThreshold; }
+    public void setFreeDeliveryThreshold(BigDecimal freeDeliveryThreshold) { this.freeDeliveryThreshold = freeDeliveryThreshold; }
+
     public Restaurant() {
     }
 

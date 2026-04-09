@@ -13,6 +13,8 @@ import com.fooddelivery.catalog.repository.MenuCategoryRepository;
 import com.fooddelivery.catalog.repository.MenuItemRepository;
 import com.fooddelivery.catalog.repository.RestaurantRepository;
 import com.fooddelivery.catalog.specification.MenuCategorySpecification;
+import com.fooddelivery.mapper.MenuCategoryMapper;
+import com.fooddelivery.mapper.MenuItemMapper;
 import jakarta.persistence.EntityNotFoundException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -38,17 +40,22 @@ public class MenuCategoryService {
     private final RestaurantRepository restaurantRepository;
     private final MenuItemRepository menuItemRepository;
     private final AuthService authService;
+    private final MenuCategoryMapper menuCategoryMapper;
+    private final MenuItemMapper menuItemMapper;
 
     public MenuCategoryService(MenuCategoryRepository categoryRepository,
                                RestaurantRepository restaurantRepository,
                                MenuItemRepository menuItemRepository,
-                               AuthService authService) {
+                               AuthService authService,
+                               MenuCategoryMapper menuCategoryMapper,
+                               MenuItemMapper menuItemMapper) {
         this.categoryRepository = categoryRepository;
         this.restaurantRepository = restaurantRepository;
         this.menuItemRepository = menuItemRepository;
         this.authService = authService;
+        this.menuCategoryMapper = menuCategoryMapper;
+        this.menuItemMapper = menuItemMapper;
     }
-
 
     @Transactional
     public MenuCategory createCategory(CreateCategoryRequest request) {
@@ -75,12 +82,7 @@ public class MenuCategoryService {
         Restaurant restaurant = restaurantRepository.findById(restaurantId)
                 .orElseThrow(() -> new EntityNotFoundException("Restaurant not found: " + restaurantId));
 
-        MenuCategory category = new MenuCategory();
-        category.setName(request.getName().trim());
-        category.setPosition(request.getPosition() != null ? request.getPosition() : 999);
-        category.setActive(request.getActive() != null ? request.getActive() : true);
-        category.setRestaurant(restaurant);
-
+        MenuCategory category = menuCategoryMapper.toEntity(request, restaurant);
         MenuCategory saved = categoryRepository.save(category);
         log.info("Category created: id={}, name={}, restaurantId={}, by user={}",
                 saved.getId(), saved.getName(), restaurantId, currentUser.getId());
@@ -92,18 +94,8 @@ public class MenuCategoryService {
         User currentUser = authService.getCurrentUser();
         MenuCategory category = findByIdAndCheckAccess(id, currentUser);
 
-        if (request.getName() != null) {
-            if (!StringUtils.hasText(request.getName())) {
-                throw new IllegalArgumentException("Category name must not be empty");
-            }
-            category.setName(request.getName().trim());
-        }
-        if (request.getPosition() != null) {
-            category.setPosition(request.getPosition());
-        }
-        if (request.getActive() != null) {
-            category.setActive(request.getActive());
-        }
+        menuCategoryMapper.updateEntity(category, request);
+
         MenuCategory updated = categoryRepository.save(category);
         log.info("Category updated: id={}, name={}, by user={}", updated.getId(), updated.getName(), currentUser.getId());
         return updated;
@@ -152,7 +144,7 @@ public class MenuCategoryService {
         java.util.Map<UUID, List<MenuItemDto>> itemsByCategory = activeItems.stream()
                 .collect(Collectors.groupingBy(
                         MenuItem::getCategoryId,
-                        Collectors.mapping(this::toMenuItemDto, Collectors.toList())
+                        Collectors.mapping(menuItemMapper::toDto, Collectors.toList())
                 ));
 
         return activeCategories.stream()
@@ -171,7 +163,6 @@ public class MenuCategoryService {
                 .orElseThrow(() -> new EntityNotFoundException("Restaurant not found: " + slug));
         return getActiveMenuByRestaurantId(restaurant.getId());
     }
-
 
     private MenuCategory findByIdAndCheckAccess(UUID id, User user) {
         MenuCategory category = categoryRepository.findById(id)
@@ -192,16 +183,4 @@ public class MenuCategoryService {
         throw new AccessDeniedException("Only SUPER_ADMIN or CAFE_ADMIN can manage categories");
     }
 
-    private MenuItemDto toMenuItemDto(MenuItem item) {
-        return new MenuItemDto(
-                item.getId(),
-                item.getName(),
-                item.getDescription(),
-                item.getPrice(),
-                item.getImageUrl(),
-                item.getWeightGrams(),
-                item.getAllergens(),
-                item.getTags()
-        );
-    }
 }

@@ -20,4 +20,5 @@ public interface PaymentRepository extends JpaRepository<Payment, UUID>, JpaSpec
     @Query("SELECT p FROM Payment p WHERE p.orderId = :orderId")
     Optional<Payment> findByOrderIdWithLock(@Param("orderId") UUID orderId);
 
+    boolean existsByIdAndUserId(UUID paymentId, UUID id);
 }

@@ -11,8 +11,8 @@ import com.fooddelivery.catalog.repository.MenuCategoryRepository;
 import com.fooddelivery.catalog.repository.MenuItemRepository;
 import com.fooddelivery.catalog.repository.RestaurantRepository;
 import com.fooddelivery.catalog.specification.MenuItemSpecification;
+import com.fooddelivery.mapper.MenuItemMapper;
 import jakarta.persistence.EntityNotFoundException;
-import jakarta.validation.constraints.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.data.domain.Page;
@@ -34,14 +34,18 @@ public class MenuItemService {
     private final RestaurantRepository restaurantRepository;
     private final AuthService authService;
     private final MenuCategoryRepository menuCategoryRepository;
+    private final MenuItemMapper menuItemMapper;
 
     public MenuItemService(MenuItemRepository menuItemRepository,
                            RestaurantRepository restaurantRepository,
-                           AuthService authService, MenuCategoryRepository menuCategoryRepository) {
+                           AuthService authService,
+                           MenuCategoryRepository menuCategoryRepository,
+                           MenuItemMapper menuItemMapper) {
         this.menuItemRepository = menuItemRepository;
         this.restaurantRepository = restaurantRepository;
         this.authService = authService;
         this.menuCategoryRepository = menuCategoryRepository;
+        this.menuItemMapper = menuItemMapper;
     }
 
     @Transactional
@@ -59,19 +63,10 @@ public class MenuItemService {
                 .orElseThrow(() -> new EntityNotFoundException("Restaurant not found for category"));
 
         checkRestaurantAccess(currentUser, restaurant.getId());
-
         validateRestaurantActive(restaurant);
 
-        MenuItem item = new MenuItem();
+        MenuItem item = menuItemMapper.toEntity(dto);
         item.setCategoryId(category.getId());
-        item.setName(dto.getName());
-        item.setDescription(dto.getDescription());
-        item.setPrice(dto.getPrice());
-        item.setImageUrl(dto.getImageUrl());
-        item.setAvailable(dto.isAvailable());
-        item.setWeightGrams(dto.getWeightGrams());
-        item.setAllergens(dto.getAllergens());
-        item.setTags(dto.getTags());
 
         return menuItemRepository.save(item);
     }
@@ -89,7 +84,6 @@ public class MenuItemService {
                 .orElseThrow(() -> new EntityNotFoundException("Restaurant not found for old category"));
 
         checkRestaurantAccess(currentUser, oldRestaurant.getId());
-
         validateRestaurantActive(oldRestaurant);
 
         UUID newCategoryId = dto.getCategoryId();
@@ -106,14 +100,7 @@ public class MenuItemService {
             item.setCategoryId(newCategoryId);
         }
 
-        item.setName(dto.getName());
-        item.setDescription(dto.getDescription());
-        item.setPrice(dto.getPrice());
-        item.setImageUrl(dto.getImageUrl());
-        item.setAvailable(dto.isAvailable());
-        item.setWeightGrams(dto.getWeightGrams());
-        item.setAllergens(dto.getAllergens());
-        item.setTags(dto.getTags());
+        menuItemMapper.updateEntity(item, dto);
 
         return menuItemRepository.save(item);
     }
@@ -161,26 +148,6 @@ public class MenuItemService {
         return menuItemRepository.findAll(spec, pageable);
     }
 
-    private void checkRestaurantAccess(User user, UUID restaurantId) {
-        if (user.getRole() == Role.SUPER_ADMIN) {
-            return;
-        }
-        if (user.getRole() == Role.CAFE_ADMIN) {
-            if (user.getCafeId() == null) {
-                log.warn("Access denied: CAFE_ADMIN user {} has no associated cafe", user.getId());
-                throw new AccessDeniedException("You are not assigned to any restaurant");
-            }
-            if (!user.getCafeId().equals(restaurantId)) {
-                log.warn("Access denied: user {} tried to modify menu of restaurant {} but belongs to {}",
-                        user.getId(), restaurantId, user.getCafeId());
-                throw new AccessDeniedException("You don't have permission to modify this restaurant's menu");
-            }
-            return;
-        }
-        log.warn("Access denied: user {} with role {} tried to modify menu", user.getId(), user.getRole());
-        throw new AccessDeniedException("Only SUPER_ADMIN or CAFE_ADMIN can modify menu");
-    }
-
     @Transactional
     public void deleteMenuItem(UUID id) {
         User currentUser = authService.getCurrentUser();
@@ -199,6 +166,27 @@ public class MenuItemService {
 
         menuItemRepository.delete(item);
         log.info("MenuItem {} deleted by user {}", id, currentUser.getId());
+    }
+
+
+    private void checkRestaurantAccess(User user, UUID restaurantId) {
+        if (user.getRole() == Role.SUPER_ADMIN) {
+            return;
+        }
+        if (user.getRole() == Role.CAFE_ADMIN) {
+            if (user.getCafeId() == null) {
+                log.warn("Access denied: CAFE_ADMIN user {} has no associated cafe", user.getId());
+                throw new AccessDeniedException("You are not assigned to any restaurant");
+            }
+            if (!user.getCafeId().equals(restaurantId)) {
+                log.warn("Access denied: user {} tried to modify menu of restaurant {} but belongs to {}",
+                        user.getId(), restaurantId, user.getCafeId());
+                throw new AccessDeniedException("You don't have permission to modify this restaurant's menu");
+            }
+            return;
+        }
+        log.warn("Access denied: user {} with role {} tried to modify menu", user.getId(), user.getRole());
+        throw new AccessDeniedException("Only SUPER_ADMIN or CAFE_ADMIN can modify menu");
     }
 
     private void validateRestaurantActive(Restaurant restaurant) {

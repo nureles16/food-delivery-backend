@@ -1,10 +1,10 @@
 package com.fooddelivery.payments.controller;
 
 import com.fooddelivery.auth.security.CustomUserDetails;
+import com.fooddelivery.exceptions.BadRequestException;
 import com.fooddelivery.payments.dto.*;
 import com.fooddelivery.payments.entity.PaymentStatus;
 import com.fooddelivery.payments.entity.PayoutStatus;
-import com.fooddelivery.exceptions.BadRequestException;
 import com.fooddelivery.payments.service.PaymentService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -18,6 +18,7 @@ import org.springframework.data.domain.Sort;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
@@ -38,16 +39,21 @@ public class PaymentController {
         this.paymentService = paymentService;
     }
 
+
     @Operation(summary = "Инициировать платёж для заказа (internal)")
     @PostMapping("/initiate")
     @PreAuthorize("hasRole('SYSTEM') or hasRole('SUPER_ADMIN')")
-    public ResponseEntity<InitiatePaymentResponse> initiatePayment(@Valid @RequestBody CreatePaymentRequest request) {
+    public ResponseEntity<InitiatePaymentResponse> initiatePayment(
+            @Valid @RequestBody CreatePaymentRequest request,
+            @RequestHeader(value = "X-Internal-Token", required = false) String internalToken) {
+
+        validateInternalToken(internalToken);
         log.debug("Initiate payment request for orderId={}", request.getOrderId());
         InitiatePaymentResponse response = paymentService.initiatePayment(request);
         return ResponseEntity.ok(response);
     }
 
-    @Operation(summary = "Webhook от Freedom Pay")
+    @Operation(summary = "Webhook от Freedom Pay (публичный, без авторизации)")
     @PostMapping("/webhook/freedompay")
     public ResponseEntity<Void> handleFreedomPayWebhook(
             @RequestBody WebhookPayload payload,
@@ -74,7 +80,12 @@ public class PaymentController {
     @Operation(summary = "Автоматический возврат по отмене заказа (internal)")
     @PostMapping("/internal/refund-by-order/{orderId}")
     @PreAuthorize("hasRole('SYSTEM') or hasRole('SUPER_ADMIN')")
-    public ResponseEntity<PaymentResponse> refundByOrder(@PathVariable UUID orderId, @Valid @RequestBody RefundRequest refundRequest) {
+    public ResponseEntity<PaymentResponse> refundByOrder(
+            @PathVariable UUID orderId,
+            @Valid @RequestBody RefundRequest refundRequest,
+            @RequestHeader(value = "X-Internal-Token", required = false) String internalToken) {
+
+        validateInternalToken(internalToken);
         log.info("Auto-refund requested by OrderService for orderId={}, reason={}", orderId, refundRequest.getCancelledReason());
         PaymentResponse response = paymentService.refundByOrderId(orderId, refundRequest.getCancelledReason());
         return ResponseEntity.ok(response);
@@ -98,8 +109,10 @@ public class PaymentController {
         return ResponseEntity.ok(paymentService.markPayoutAsPaid(paymentId));
     }
 
+
     @Operation(summary = "Получить свои платежи с фильтрацией")
     @GetMapping("/my")
+    @PreAuthorize("@paymentSecurity.canAccessMyPayments(authentication)")
     public ResponseEntity<Page<PaymentResponse>> getMyPayments(
             Authentication authentication,
             @RequestParam(required = false) UUID orderId,
@@ -140,6 +153,7 @@ public class PaymentController {
 
     @Operation(summary = "Получить детали платежа по ID")
     @GetMapping("/{paymentId}")
+    @PreAuthorize("@paymentSecurity.canAccessPayment(authentication, #paymentId)")
     public ResponseEntity<PaymentResponse> getPaymentById(
             @PathVariable UUID paymentId,
             Authentication authentication) {
@@ -147,6 +161,13 @@ public class PaymentController {
         return ResponseEntity.ok(response);
     }
 
+
+    private void validateInternalToken(String token) {
+        final String EXPECTED_TOKEN = "your-secure-internal-token"; // вынести в конфигурацию
+        if (token == null || !EXPECTED_TOKEN.equals(token)) {
+            throw new AccessDeniedException("Invalid or missing internal token");
+        }
+    }
 
     private void validateDateRange(LocalDateTime startDate, LocalDateTime endDate) {
         if (startDate != null && endDate != null && startDate.isAfter(endDate)) {

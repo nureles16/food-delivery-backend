@@ -12,4 +12,6 @@ import org.springframework.stereotype.Repository;
 @Repository
 public interface NotificationRepository extends JpaRepository<Notification, UUID>, JpaSpecificationExecutor<Notification> {
     Page<Notification> findAllByUserId(UUID userId, Pageable pageable);
+
+    boolean existsByIdAndUserId(UUID notificationId, UUID id);
 }

@@ -5,5 +5,4 @@ public enum Role {
     SUPER_ADMIN,
     CAFE_ADMIN,
     CLIENT
-
 }

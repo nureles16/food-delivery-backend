@@ -4,12 +4,12 @@ import com.fooddelivery.auth.entity.Role;
 import com.fooddelivery.auth.entity.User;
 import com.fooddelivery.auth.service.AuthService;
 import com.fooddelivery.catalog.dto.RestaurantRequest;
-import com.fooddelivery.catalog.dto.WorkingHoursDto;
 import com.fooddelivery.catalog.entity.Restaurant;
 import com.fooddelivery.catalog.entity.WorkingHours;
 import com.fooddelivery.catalog.repository.RestaurantRepository;
 import com.fooddelivery.catalog.repository.WorkingHoursRepository;
 import com.fooddelivery.catalog.specification.RestaurantSpecification;
+import com.fooddelivery.mapper.RestaurantMapper;
 import com.fooddelivery.orders.dto.Address;
 import jakarta.persistence.EntityNotFoundException;
 import jakarta.transaction.Transactional;
@@ -35,12 +35,16 @@ public class RestaurantService {
     private final RestaurantRepository restaurantRepository;
     private final WorkingHoursRepository workingHoursRepository;
     private final AuthService authService;
+    private final RestaurantMapper restaurantMapper;
 
     public RestaurantService(RestaurantRepository restaurantRepository,
-                             WorkingHoursRepository workingHoursRepository, AuthService authService) {
+                             WorkingHoursRepository workingHoursRepository,
+                             AuthService authService,
+                             RestaurantMapper restaurantMapper) {
         this.restaurantRepository = restaurantRepository;
         this.workingHoursRepository = workingHoursRepository;
         this.authService = authService;
+        this.restaurantMapper = restaurantMapper;
     }
 
     @Transactional
@@ -51,23 +55,9 @@ public class RestaurantService {
                     currentUser.getId());
             throw new AccessDeniedException("Only SUPER_ADMIN can create restaurants");
         }
-        Restaurant restaurant = new Restaurant();
-        restaurant.setName(request.getName());
+
+        Restaurant restaurant = restaurantMapper.toEntity(request);
         restaurant.setSlug(generateSlug(request.getName()));
-        restaurant.setDescription(request.getDescription());
-        restaurant.setAddress(request.getAddress());
-        restaurant.setCity(request.getCity());
-        restaurant.setLogoUrl(request.getLogoUrl());
-        restaurant.setCoverUrl(request.getCoverUrl());
-        restaurant.setCuisineType(request.getCuisineType());
-        restaurant.setMinOrderAmount(request.getMinOrderAmount());
-        restaurant.setDeliveryZoneRadiusKm(request.getDeliveryZoneRadiusKm());
-        restaurant.setLatitude(request.getLatitude());
-        restaurant.setLongitude(request.getLongitude());
-        restaurant.setPhone(request.getPhone());
-        restaurant.setEmail(request.getEmail());
-        restaurant.setPaymentDetails(request.getPaymentDetails());
-        restaurant.setCertificates(request.getCertificates());
         restaurant.setActive(true);
         restaurant.setVerified(false);
         restaurant.setCommissionRate(new BigDecimal("12.00"));
@@ -76,7 +66,7 @@ public class RestaurantService {
 
         if (request.getWorkingHours() != null && !request.getWorkingHours().isEmpty()) {
             List<WorkingHours> workingHoursList = request.getWorkingHours().stream()
-                    .map(dto -> mapToWorkingHours(dto, savedRestaurant))
+                    .map(dto -> restaurantMapper.toWorkingHours(dto, savedRestaurant))
                     .collect(Collectors.toList());
             workingHoursRepository.saveAll(workingHoursList);
             savedRestaurant.setWorkingHours(workingHoursList);
@@ -98,26 +88,13 @@ public class RestaurantService {
         if (!isSuperAdmin && !isOwnerCafeAdmin) {
             throw new AccessDeniedException("You don't have permission to update this restaurant");
         }
-        restaurant.setName(request.getName());
-        restaurant.setDescription(request.getDescription());
-        restaurant.setAddress(request.getAddress());
-        restaurant.setCity(request.getCity());
-        restaurant.setLogoUrl(request.getLogoUrl());
-        restaurant.setCoverUrl(request.getCoverUrl());
-        restaurant.setCuisineType(request.getCuisineType());
-        restaurant.setMinOrderAmount(request.getMinOrderAmount());
-        restaurant.setDeliveryZoneRadiusKm(request.getDeliveryZoneRadiusKm());
-        restaurant.setLatitude(request.getLatitude());
-        restaurant.setLongitude(request.getLongitude());
-        restaurant.setPhone(request.getPhone());
-        restaurant.setEmail(request.getEmail());
-        restaurant.setPaymentDetails(request.getPaymentDetails());
-        restaurant.setCertificates(request.getCertificates());
+
+        restaurantMapper.updateEntity(restaurant, request);
 
         if (request.getWorkingHours() != null) {
             workingHoursRepository.deleteByRestaurantId(restaurant.getId());
             List<WorkingHours> newWorkingHours = request.getWorkingHours().stream()
-                    .map(dto -> mapToWorkingHours(dto, restaurant))
+                    .map(dto -> restaurantMapper.toWorkingHours(dto, restaurant))
                     .collect(Collectors.toList());
             workingHoursRepository.saveAll(newWorkingHours);
             restaurant.setWorkingHours(newWorkingHours);
@@ -269,15 +246,6 @@ public class RestaurantService {
         } catch (Exception e) {
             return "unknown";
         }
-    }
-
-    private WorkingHours mapToWorkingHours(WorkingHoursDto dto, Restaurant restaurant) {
-        WorkingHours wh = new WorkingHours();
-        wh.setRestaurant(restaurant);
-        wh.setDayOfWeek(dto.getDayOfWeek());
-        wh.setOpenTime(dto.getOpenTime());
-        wh.setCloseTime(dto.getCloseTime());
-        return wh;
     }
 
     public boolean isWithinDeliveryZone(UUID restaurantId, Address address) {

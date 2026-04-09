@@ -9,6 +9,7 @@ import com.fooddelivery.auth.repository.PasswordResetTokenRepository;
 import com.fooddelivery.auth.repository.RefreshTokenRepository;
 import com.fooddelivery.auth.repository.UserRepository;
 import com.fooddelivery.exceptions.*;
+import com.fooddelivery.mapper.UserMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.security.core.Authentication;
@@ -33,19 +34,22 @@ public class AuthService {
     private final RefreshTokenRepository refreshTokenRepository;
     private final PasswordResetTokenRepository passwordResetTokenRepository;
     private final TokenBlacklistService tokenBlacklistService;
+    private final UserMapper userMapper;
 
     public AuthService(UserRepository userRepository,
                        PasswordEncoder passwordEncoder,
                        JwtService jwtService,
                        RefreshTokenRepository refreshTokenRepository,
                        PasswordResetTokenRepository passwordResetTokenRepository,
-                       TokenBlacklistService tokenBlacklistService) {
+                       TokenBlacklistService tokenBlacklistService,
+                       UserMapper userMapper) {
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
         this.jwtService = jwtService;
         this.refreshTokenRepository = refreshTokenRepository;
         this.passwordResetTokenRepository = passwordResetTokenRepository;
         this.tokenBlacklistService = tokenBlacklistService;
+        this.userMapper = userMapper;
     }
 
     @Transactional
@@ -57,15 +61,14 @@ public class AuthService {
             throw new ConflictException("Phone already exists");
         }
 
-        User user = new User();
-        user.setEmail(request.getEmail());
-        user.setPhone(request.getPhone());
+        User user = userMapper.toUser(request);
         user.setPasswordHash(passwordEncoder.encode(request.getPassword()));
         user.setRole(Role.CLIENT);
         user.setActive(true);
         user.setForcePasswordChange(false);
         user.setCreatedAt(LocalDateTime.now());
         user.setUpdatedAt(LocalDateTime.now());
+
         userRepository.save(user);
     }
 
@@ -105,6 +108,7 @@ public class AuthService {
             throw new ForbiddenException("Only SUPER_ADMIN can perform this action");
         }
     }
+
     @Transactional
     public void createCafeAdmin(CreateCafeAdminRequest request) {
         checkSuperAdminRole();
@@ -116,13 +120,10 @@ public class AuthService {
             throw new ConflictException("Phone already exists");
         }
 
-        User user = new User();
-        user.setEmail(request.getEmail());
-        user.setPhone(request.getPhone());
+        User user = userMapper.toUser(request);
         String tempPassword = generateRandomPassword();
         user.setPasswordHash(passwordEncoder.encode(tempPassword));
         user.setRole(Role.CAFE_ADMIN);
-        user.setCafeId(request.getCafeId());
         user.setActive(true);
         user.setForcePasswordChange(true);
         user.setCreatedAt(LocalDateTime.now());
