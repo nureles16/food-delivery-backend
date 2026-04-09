@@ -40,8 +40,8 @@ public class PaymentController {
 
     @Operation(summary = "Инициировать платёж для заказа (internal)")
     @PostMapping("/initiate")
-    public ResponseEntity<InitiatePaymentResponse> initiatePayment(
-            @Valid @RequestBody CreatePaymentRequest request) {
+    @PreAuthorize("hasRole('SYSTEM') or hasRole('SUPER_ADMIN')")
+    public ResponseEntity<InitiatePaymentResponse> initiatePayment(@Valid @RequestBody CreatePaymentRequest request) {
         log.debug("Initiate payment request for orderId={}", request.getOrderId());
         InitiatePaymentResponse response = paymentService.initiatePayment(request);
         return ResponseEntity.ok(response);
@@ -73,9 +73,8 @@ public class PaymentController {
 
     @Operation(summary = "Автоматический возврат по отмене заказа (internal)")
     @PostMapping("/internal/refund-by-order/{orderId}")
-    public ResponseEntity<PaymentResponse> refundByOrder(
-            @PathVariable UUID orderId,
-            @Valid @RequestBody RefundRequest refundRequest) {
+    @PreAuthorize("hasRole('SYSTEM') or hasRole('SUPER_ADMIN')")
+    public ResponseEntity<PaymentResponse> refundByOrder(@PathVariable UUID orderId, @Valid @RequestBody RefundRequest refundRequest) {
         log.info("Auto-refund requested by OrderService for orderId={}, reason={}", orderId, refundRequest.getCancelledReason());
         PaymentResponse response = paymentService.refundByOrderId(orderId, refundRequest.getCancelledReason());
         return ResponseEntity.ok(response);

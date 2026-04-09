@@ -52,7 +52,7 @@ public class NotificationService {
                 .map(this::mapToResponse);
     }
 
-    public NotificationResponse markAsRead(UUID notificationId) {
+    public NotificationResponse markAsRead(UUID notificationId, UUID currentUserId) {
         Notification notification = notificationRepository.findById(notificationId)
                 .orElseThrow(() -> new NotFoundException("Notification not found"));
 
