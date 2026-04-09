@@ -8,9 +8,9 @@ import com.fooddelivery.auth.entity.Role;
 import com.fooddelivery.auth.repository.PasswordResetTokenRepository;
 import com.fooddelivery.auth.repository.RefreshTokenRepository;
 import com.fooddelivery.auth.repository.UserRepository;
+import com.fooddelivery.exceptions.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UserDetails;
@@ -27,7 +27,6 @@ public class AuthService {
 
     private static final Logger log = LoggerFactory.getLogger(AuthService.class);
 
-
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
@@ -39,7 +38,8 @@ public class AuthService {
                        PasswordEncoder passwordEncoder,
                        JwtService jwtService,
                        RefreshTokenRepository refreshTokenRepository,
-                       PasswordResetTokenRepository passwordResetTokenRepository, TokenBlacklistService tokenBlacklistService) {
+                       PasswordResetTokenRepository passwordResetTokenRepository,
+                       TokenBlacklistService tokenBlacklistService) {
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
         this.jwtService = jwtService;
@@ -51,10 +51,10 @@ public class AuthService {
     @Transactional
     public void register(RegisterRequest request) {
         if (userRepository.existsByEmail(request.getEmail())) {
-            throw new RuntimeException("Email already exists");
+            throw new ConflictException("Email already exists");
         }
         if (request.getPhone() != null && userRepository.existsByPhone(request.getPhone())) {
-            throw new RuntimeException("Phone already exists");
+            throw new ConflictException("Phone already exists");
         }
 
         User user = new User();
@@ -72,19 +72,17 @@ public class AuthService {
     @Transactional
     public AuthResponse login(LoginRequest request, String deviceId, String userAgent, String ip) {
         User user = userRepository.findByEmail(request.getEmail())
-                .orElseThrow(() -> new RuntimeException("User not found"));
+                .orElseThrow(() -> new NotFoundException("User not found"));
 
         if (!passwordEncoder.matches(request.getPassword(), user.getPasswordHash())) {
-            throw new RuntimeException("Invalid password");
+            throw new BadRequestException("Invalid password");
         }
 
         if (!user.isActive()) {
-            throw new RuntimeException("Account is disabled");
+            throw new ForbiddenException("Account is disabled");
         }
         String accessToken = jwtService.generateAccessToken(user);
-
         String refreshToken = jwtService.createRefreshToken(user, deviceId, userAgent, ip);
-
         boolean forcePasswordChange = user.isForcePasswordChange();
         return new AuthResponse(accessToken, refreshToken, forcePasswordChange);
     }
@@ -104,7 +102,7 @@ public class AuthService {
         boolean isSuperAdmin = currentUser.getAuthorities().stream()
                 .anyMatch(a -> a.getAuthority().equals("ROLE_SUPER_ADMIN"));
         if (!isSuperAdmin) {
-            throw new AccessDeniedException("Only SUPER_ADMIN can perform this action");
+            throw new ForbiddenException("Only SUPER_ADMIN can perform this action");
         }
     }
     @Transactional
@@ -112,10 +110,10 @@ public class AuthService {
         checkSuperAdminRole();
 
         if (userRepository.existsByEmail(request.getEmail())) {
-            throw new RuntimeException("Email already exists");
+            throw new ConflictException("Email already exists");
         }
         if (request.getPhone() != null && userRepository.existsByPhone(request.getPhone())) {
-            throw new RuntimeException("Phone already exists");
+            throw new ConflictException("Phone already exists");
         }
 
         User user = new User();
@@ -144,10 +142,10 @@ public class AuthService {
 
     public void forgotPassword(ForgotPasswordRequest request) {
         User user = userRepository.findByEmail(request.getEmail())
-                .orElseThrow(() -> new RuntimeException("User not found with email: " + request.getEmail()));
+                .orElseThrow(() -> new NotFoundException("User not found with email: " + request.getEmail()));
 
         if (!user.isActive()) {
-            throw new IllegalStateException("Account is disabled. Cannot reset password.");
+            throw new ForbiddenException("Account is disabled. Cannot reset password.");
         }
 
         String token = UUID.randomUUID().toString();
@@ -163,18 +161,18 @@ public class AuthService {
 
     public void resetPassword(ResetPasswordRequest request) {
         PasswordResetToken resetToken = passwordResetTokenRepository.findByToken(request.getToken())
-                .orElseThrow(() -> new RuntimeException("Invalid password reset token"));
+                .orElseThrow(() -> new NotFoundException("Invalid password reset token"));
 
         if (resetToken.isUsed()) {
-            throw new RuntimeException("Token already used");
+            throw new ConflictException("Token already used");
         }
         if (resetToken.getExpiryDate().isBefore(LocalDateTime.now())) {
-            throw new RuntimeException("Token expired");
+            throw new BadRequestException("Token expired");
         }
 
         User user = resetToken.getUser();
         if (!user.isActive()) {
-            throw new RuntimeException("Account is disabled");
+            throw new ForbiddenException("Account is disabled");
         }
         user.setPasswordHash(passwordEncoder.encode(request.getNewPassword()));
         user.setForcePasswordChange(false);
@@ -191,7 +189,7 @@ public class AuthService {
         checkSuperAdminRole();
 
         User user = userRepository.findById(userId)
-                .orElseThrow(() -> new RuntimeException("User not found"));
+                .orElseThrow(() -> new NotFoundException("User not found"));
         user.setActive(active);
         user.setUpdatedAt(LocalDateTime.now());
         userRepository.save(user);
@@ -204,9 +202,9 @@ public class AuthService {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         String email = authentication.getName();
         User user = userRepository.findByEmail(email)
-                .orElseThrow(() -> new RuntimeException("User not found"));
+                .orElseThrow(() -> new NotFoundException("User not found"));
         if (!passwordEncoder.matches(request.getCurrentPassword(), user.getPasswordHash())) {
-            throw new RuntimeException("Current password is incorrect");
+            throw new BadRequestException("Current password is incorrect");
         }
         user.setPasswordHash(passwordEncoder.encode(request.getNewPassword()));
         user.setForcePasswordChange(false);
@@ -222,17 +220,17 @@ public class AuthService {
             userIdStr = jwtService.extractUserId(accessToken);
         } catch (Exception e) {
             log.warn("Cannot extract userId from token during logout: {}", e.getMessage());
-            throw new IllegalArgumentException("Invalid access token");
+            throw new BadRequestException("Invalid access token");
         }
         UUID tokenUserId = UUID.fromString(userIdStr);
 
         User currentUser = userRepository.findByEmail(currentUserEmail)
-                .orElseThrow(() -> new RuntimeException("Current user not found"));
+                .orElseThrow(() -> new NotFoundException("Current user not found"));
 
         if (!currentUser.getId().equals(tokenUserId)) {
             log.warn("Logout attempt with token belonging to different user: tokenUserId={}, currentUserId={}",
                     tokenUserId, currentUser.getId());
-            throw new SecurityException("Token does not belong to the authenticated user");
+            throw new ForbiddenException("Token does not belong to the authenticated user");
         }
 
         if (jwtService.validateToken(accessToken)) {
@@ -252,25 +250,25 @@ public class AuthService {
     public User getCurrentUser() {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
         if (auth == null || !auth.isAuthenticated()) {
-            throw new RuntimeException("User not authenticated");
+            throw new UnauthorizedException("User not authenticated");
         }
         Object principal = auth.getPrincipal();
         if (!(principal instanceof UserDetails)) {
-            throw new RuntimeException("Principal is not UserDetails");
+            throw new UnauthorizedException("Principal is not UserDetails");
         }
         String email = ((UserDetails) principal).getUsername();
         return userRepository.findByEmail(email)
-                .orElseThrow(() -> new RuntimeException("Authenticated user not found in database"));
+                .orElseThrow(() -> new NotFoundException("Authenticated user not found in database"));
     }
 
     public UserDetails getCurrentUserDetails() {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
         if (auth == null || !auth.isAuthenticated()) {
-            throw new RuntimeException("User not authenticated");
+            throw new UnauthorizedException("User not authenticated");
         }
         Object principal = auth.getPrincipal();
         if (!(principal instanceof UserDetails)) {
-            throw new RuntimeException("Principal is not UserDetails");
+            throw new UnauthorizedException("Principal is not UserDetails");
         }
         return (UserDetails) principal;
     }

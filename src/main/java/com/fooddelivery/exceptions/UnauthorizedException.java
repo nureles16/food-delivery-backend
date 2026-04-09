@@ -1,4 +1,4 @@
-package com.fooddelivery.payments.exceptions;
+package com.fooddelivery.exceptions;
 
 import org.springframework.http.HttpStatus;
 

@@ -4,7 +4,7 @@ import com.fooddelivery.auth.security.CustomUserDetails;
 import com.fooddelivery.payments.dto.*;
 import com.fooddelivery.payments.entity.PaymentStatus;
 import com.fooddelivery.payments.entity.PayoutStatus;
-import com.fooddelivery.payments.exceptions.BadRequestException;
+import com.fooddelivery.exceptions.BadRequestException;
 import com.fooddelivery.payments.service.PaymentService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;

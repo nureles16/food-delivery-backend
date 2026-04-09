@@ -5,6 +5,7 @@ import com.fooddelivery.catalog.entity.Restaurant;
 import com.fooddelivery.catalog.repository.MenuItemRepository;
 import com.fooddelivery.catalog.repository.RestaurantRepository;
 import com.fooddelivery.catalog.service.RestaurantService;
+import com.fooddelivery.exceptions.*;
 import com.fooddelivery.orders.dto.Address;
 import com.fooddelivery.orders.dto.CreateOrderRequest;
 import com.fooddelivery.orders.dto.OrderItemDto;
@@ -22,7 +23,6 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.scheduling.annotation.Scheduled;
-import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
@@ -62,18 +62,18 @@ public class OrderService {
     @Transactional
     public Order createOrder(@Valid CreateOrderRequest request, UUID clientId) {
         if (request.getItems() == null || request.getItems().isEmpty()) {
-            throw new OrderException("Order must contain at least one item");
+            throw new BadRequestException("Order must contain at least one item");
         }
 
         Restaurant restaurant = restaurantRepository.findById(request.getRestaurantId())
-                .orElseThrow(() -> new OrderException("Restaurant not found"));
+                .orElseThrow(() -> new NotFoundException("Restaurant not found"));
 
         if (!restaurant.isActive() || !restaurant.isVerified() || !restaurant.isOpenNow()) {
-            throw new OrderException("Restaurant is not active, not verified, or closed at this time");
+            throw new ForbiddenException("Restaurant is not active, not verified, or closed at this time");
         }
 
         if (!restaurantService.isWithinDeliveryZone(restaurant.getId(), request.getDeliveryAddress())) {
-            throw new OrderException("Delivery address is outside restaurant's delivery zone");
+            throw new BadRequestException("Delivery address is outside restaurant's delivery zone");
         }
 
         BigDecimal subtotal = BigDecimal.ZERO;
@@ -81,14 +81,14 @@ public class OrderService {
 
         for (OrderItemDto itemDto : request.getItems()) {
             MenuItem item = menuItemRepository.findById(itemDto.getItemId())
-                    .orElseThrow(() -> new OrderException("Menu item not found: " + itemDto.getItemId()));
+                    .orElseThrow(() -> new NotFoundException("Menu item not found: " + itemDto.getItemId()));
 
             if (!item.getRestaurantId().equals(request.getRestaurantId())) {
-                throw new OrderException("Item " + item.getId() + " does not belong to restaurant " + request.getRestaurantId());
+                throw new BadRequestException("Item " + item.getId() + " does not belong to restaurant " + request.getRestaurantId());
             }
 
             if (!item.isAvailable()) {
-                throw new OrderException("Item " + item.getName() + " is currently unavailable");
+                throw new ConflictException("Item " + item.getName() + " is currently unavailable");
             }
 
             BigDecimal itemTotal = item.getPrice().multiply(BigDecimal.valueOf(itemDto.getQuantity()));
@@ -104,14 +104,14 @@ public class OrderService {
 
         BigDecimal minOrderAmount = restaurant.getMinOrderAmount() != null ? restaurant.getMinOrderAmount() : BigDecimal.ZERO;
         if (subtotal.compareTo(minOrderAmount) < 0) {
-            throw new OrderException("Order subtotal (" + subtotal + ") is below the minimum order amount of " + minOrderAmount);
+            throw new BadRequestException("Order subtotal (" + subtotal + ") is below the minimum order amount of " + minOrderAmount);
         }
 
         String itemsJson;
         try {
             itemsJson = objectMapper.writeValueAsString(snapshotItems);
         } catch (Exception e) {
-            throw new OrderException("Failed to serialize order items", e);
+            throw new InternalServerErrorException("Failed to serialize order items", e);
         }
 
         BigDecimal commissionRate = restaurant.getCommissionRate() != null
@@ -145,12 +145,11 @@ public class OrderService {
         return BigDecimal.valueOf(100);
     }
 
-
     @Transactional
     public Order assignCourierSystem(UUID orderId, String yandexDeliveryId, String trackingUrl, LocalDateTime estimatedAt) {
         Order order = findOrderForUpdate(orderId);
         if (order.getStatus() != OrderStatus.READY) {
-            throw new InvalidOrderStateException("Order must be READY to assign courier");
+            throw new ConflictException("Order must be READY to assign courier");
         }
         order.setYandexDeliveryId(yandexDeliveryId);
         order.setYandexTrackingUrl(trackingUrl);
@@ -164,10 +163,10 @@ public class OrderService {
     public Order startDeliveryAutomatically(UUID orderId) {
         Order order = findOrderForUpdate(orderId);
         if (order.getYandexDeliveryId() == null) {
-            throw new OrderException("Cannot start delivery automatically: no Yandex delivery ID");
+            throw new BadRequestException("Cannot start delivery automatically: no Yandex delivery ID");
         }
         if (order.getStatus() != OrderStatus.COURIER_ASSIGNED) {
-            throw new InvalidOrderStateException("Order must be COURIER_ASSIGNED to start delivery");
+            throw new ConflictException("Order must be COURIER_ASSIGNED to start delivery");
         }
         order.setStatus(OrderStatus.DELIVERING);
         log.info("Delivery started automatically (Yandex webhook): orderId={}", orderId);
@@ -178,10 +177,10 @@ public class OrderService {
     public Order completeDeliveryAutomatically(UUID orderId) {
         Order order = findOrderForUpdate(orderId);
         if (order.getYandexDeliveryId() == null) {
-            throw new OrderException("Cannot complete delivery automatically: no Yandex delivery ID");
+            throw new BadRequestException("Cannot complete delivery automatically: no Yandex delivery ID");
         }
         if (order.getStatus() != OrderStatus.DELIVERING) {
-            throw new InvalidOrderStateException("Order must be DELIVERING to mark as delivered");
+            throw new ConflictException("Order must be DELIVERING to mark as delivered");
         }
         order.setStatus(OrderStatus.DELIVERED);
         order.setDeliveredAt(LocalDateTime.now());
@@ -195,10 +194,10 @@ public class OrderService {
         validateCafeOwnership(orderId, cafeId);
         Order order = findOrderForUpdate(orderId);
         if (order.getStatus() != OrderStatus.READY) {
-            throw new InvalidOrderStateException("Order must be READY to assign courier manually");
+            throw new ConflictException("Order must be READY to assign courier manually");
         }
         if (order.getYandexDeliveryId() != null) {
-            throw new OrderException("Cannot manually assign courier: order already assigned to Yandex Delivery");
+            throw new ConflictException("Cannot manually assign courier: order already assigned to Yandex Delivery");
         }
         order.setStatus(OrderStatus.COURIER_ASSIGNED);
         log.info("Manual courier assigned: orderId={}, cafeId={}", orderId, cafeId);
@@ -211,10 +210,10 @@ public class OrderService {
         validateCafeOwnership(orderId, cafeId);
         Order order = findOrderForUpdate(orderId);
         if (order.getYandexDeliveryId() != null) {
-            throw new OrderException("Cannot manually manage order assigned to Yandex Delivery");
+            throw new BadRequestException("Cannot manually manage order assigned to Yandex Delivery");
         }
         if (order.getStatus() != OrderStatus.COURIER_ASSIGNED) {
-            throw new InvalidOrderStateException("Order must have courier assigned before starting delivery");
+            throw new ConflictException("Order must have courier assigned before starting delivery");
         }
         order.setStatus(OrderStatus.DELIVERING);
         log.info("Manual delivery started: orderId={}, cafeId={}", orderId, cafeId);
@@ -227,10 +226,10 @@ public class OrderService {
         validateCafeOwnership(orderId, cafeId);
         Order order = findOrderForUpdate(orderId);
         if (order.getYandexDeliveryId() != null) {
-            throw new OrderException("Cannot manually manage order assigned to Yandex Delivery");
+            throw new BadRequestException("Cannot manually manage order assigned to Yandex Delivery");
         }
         if (order.getStatus() != OrderStatus.DELIVERING) {
-            throw new InvalidOrderStateException("Order must be DELIVERING to mark as delivered");
+            throw new ConflictException("Order must be DELIVERING to mark as delivered");
         }
         order.setStatus(OrderStatus.DELIVERED);
         order.setDeliveredAt(LocalDateTime.now());
@@ -238,11 +237,10 @@ public class OrderService {
         return orderRepository.save(order);
     }
 
-
     @Transactional
     public Order markAsPaid(UUID orderId, UUID paymentId, BigDecimal paidAmount) {
         Order order = orderRepository.findByIdWithLock(orderId)
-                .orElseThrow(() -> new OrderNotFoundException(orderId));
+                .orElseThrow(() -> new NotFoundException("Order not found: " + orderId));
 
         if (order.getStatus() == OrderStatus.PAID && paymentId.equals(order.getPaymentId())) {
             log.info("Duplicate markAsPaid call for order {} with same paymentId {}, ignoring", orderId, paymentId);
@@ -250,17 +248,17 @@ public class OrderService {
         }
 
         if (order.getStatus() == OrderStatus.PAID && !paymentId.equals(order.getPaymentId())) {
-            throw new InvalidOrderStateException(
+            throw new ConflictException(
                     String.format("Order %s is already paid with different paymentId %s", orderId, order.getPaymentId())
             );
         }
 
         if (order.getStatus() != OrderStatus.PENDING) {
-            throw new InvalidOrderStateException("Order cannot be paid because it is not in PENDING state");
+            throw new ConflictException("Order cannot be paid because it is not in PENDING state");
         }
 
         if (paidAmount == null || paidAmount.compareTo(order.getTotalAmount()) != 0) {
-            throw new OrderException(
+            throw new BadRequestException(
                     String.format("Payment amount %s does not match order total %s", paidAmount, order.getTotalAmount())
             );
         }
@@ -278,7 +276,7 @@ public class OrderService {
         validateCafeOwnership(orderId, cafeId);
         Order order = findOrderForUpdate(orderId);
         if (order.getStatus() != OrderStatus.PAID) {
-            throw new InvalidOrderStateException("Order must be PAID to confirm");
+            throw new ConflictException("Order must be PAID to confirm");
         }
         order.setStatus(OrderStatus.CONFIRMED);
         order.setCafeConfirmedAt(LocalDateTime.now());
@@ -292,7 +290,7 @@ public class OrderService {
         validateCafeOwnership(orderId, cafeId);
         Order order = findOrderForUpdate(orderId);
         if (order.getStatus() != OrderStatus.CONFIRMED) {
-            throw new InvalidOrderStateException("Order must be CONFIRMED before cooking");
+            throw new ConflictException("Order must be CONFIRMED before cooking");
         }
         order.setStatus(OrderStatus.COOKING);
         return orderRepository.save(order);
@@ -304,12 +302,10 @@ public class OrderService {
         validateCafeOwnership(orderId, cafeId);
         Order order = findOrderForUpdate(orderId);
         if (order.getStatus() != OrderStatus.COOKING) {
-            throw new InvalidOrderStateException("Order must be COOKING before ready, current status: " + order.getStatus());
+            throw new ConflictException("Order must be COOKING before ready, current status: " + order.getStatus());
         }
         order.setStatus(OrderStatus.READY);
         log.info("Order ready: orderId={}, cafeId={}", orderId, cafeId);
-
-
         return orderRepository.save(order);
     }
 
@@ -318,7 +314,7 @@ public class OrderService {
         validateClientOwnership(orderId, clientId);
         Order order = findOrderForUpdate(orderId);
         if (order.getStatus() != OrderStatus.PENDING && order.getStatus() != OrderStatus.PAID) {
-            throw new InvalidOrderStateException("Client can cancel only PENDING or PAID orders");
+            throw new ConflictException("Client can cancel only PENDING or PAID orders");
         }
         boolean wasPaid = order.getStatus() == OrderStatus.PAID;
         order.setStatus(OrderStatus.CANCELLED);
@@ -342,7 +338,7 @@ public class OrderService {
                 status == OrderStatus.DELIVERING ||
                 status == OrderStatus.DELIVERED ||
                 status == OrderStatus.REFUNDED) {
-            throw new InvalidOrderStateException("Cafe cannot cancel order in status " + status);
+            throw new ConflictException("Cafe cannot cancel order in status " + status);
         }
 
         boolean wasPaid = status != OrderStatus.PENDING && status != OrderStatus.CANCELLED && status != OrderStatus.REFUNDED;
@@ -371,7 +367,7 @@ public class OrderService {
     public Order markAsRefunded(UUID orderId) {
         Order order = findOrderForUpdate(orderId);
         if (order.getStatus() != OrderStatus.CANCELLED) {
-            throw new InvalidOrderStateException("Only cancelled orders can be marked as refunded");
+            throw new ConflictException("Only cancelled orders can be marked as refunded");
         }
         order.setStatus(OrderStatus.REFUNDED);
         return orderRepository.save(order);
@@ -381,7 +377,7 @@ public class OrderService {
     public Order markPaymentFailed(UUID orderId, String reason) {
         Order order = findOrderForUpdate(orderId);
         if (order.getStatus() != OrderStatus.PENDING) {
-            throw new InvalidOrderStateException("Cannot mark payment failed: order is not in PENDING state");
+            throw new ConflictException("Cannot mark payment failed: order is not in PENDING state");
         }
         order.setStatus(OrderStatus.CANCELLED);
         String cancelReason = reason != null ? reason : "Payment failed";
@@ -389,7 +385,6 @@ public class OrderService {
         log.info("Payment failed for order: orderId={}, reason={}", orderId, cancelReason);
         return orderRepository.save(order);
     }
-
 
     @Scheduled(fixedDelay = 60000)
     public void autoCancelExpiredOrders() {
@@ -405,7 +400,7 @@ public class OrderService {
         for (Order order : pendingOrders) {
             try {
                 Order locked = orderRepository.findByIdWithLock(order.getId())
-                        .orElseThrow(() -> new OrderNotFoundException(order.getId()));
+                        .orElseThrow(() -> new NotFoundException("Order not found: " + order.getId()));
                 if (locked.getStatus() != OrderStatus.PENDING) {
                     continue;
                 }
@@ -426,7 +421,7 @@ public class OrderService {
         for (Order order : paidOrders) {
             try {
                 Order locked = orderRepository.findByIdWithLock(order.getId())
-                        .orElseThrow(() -> new OrderNotFoundException(order.getId()));
+                        .orElseThrow(() -> new NotFoundException("Order not found: " + order.getId()));
                 if (locked.getStatus() != OrderStatus.PAID) {
                     continue;
                 }
@@ -441,7 +436,6 @@ public class OrderService {
         }
     }
 
-
     @Transactional(readOnly = true)
     public Page<Order> getRestaurantOrders(UUID restaurantId, UUID cafeId,
                                            OrderStatus status,
@@ -452,13 +446,13 @@ public class OrderService {
                                            BigDecimal maxAmount,
                                            Pageable pageable) {
         if (startDate != null && endDate != null && startDate.isAfter(endDate)) {
-            throw new IllegalArgumentException("startDate cannot be after endDate");
+            throw new BadRequestException("startDate cannot be after endDate");
         }
         if (minAmount != null && maxAmount != null && minAmount.compareTo(maxAmount) > 0) {
-            throw new IllegalArgumentException("minAmount cannot be greater than maxAmount");
+            throw new BadRequestException("minAmount cannot be greater than maxAmount");
         }
         if (cafeId == null || !restaurantId.equals(cafeId)) {
-            throw new AccessDeniedException("You can only view orders of your own restaurant");
+            throw new ForbiddenException("You can only view orders of your own restaurant");
         }
         Specification<Order> spec = Specification
                 .where(OrderSpecification.restaurantIdEquals(restaurantId))
@@ -479,10 +473,10 @@ public class OrderService {
                                        BigDecimal maxAmount,
                                        Pageable pageable) {
         if (startDate != null && endDate != null && startDate.isAfter(endDate)) {
-            throw new IllegalArgumentException("startDate cannot be after endDate");
+            throw new BadRequestException("startDate cannot be after endDate");
         }
         if (minAmount != null && maxAmount != null && minAmount.compareTo(maxAmount) > 0) {
-            throw new IllegalArgumentException("minAmount cannot be greater than maxAmount");
+            throw new BadRequestException("minAmount cannot be greater than maxAmount");
         }
         Specification<Order> spec = Specification
                 .where(OrderSpecification.clientIdEquals(clientId))
@@ -498,14 +492,14 @@ public class OrderService {
         Order order = findOrder(orderId);
         if ("CLIENT".equals(role)) {
             if (!order.getClientId().equals(userId)) {
-                throw new AccessDeniedException("Access denied");
+                throw new ForbiddenException("Access denied");
             }
         } else if ("CAFE_ADMIN".equals(role)) {
             if (cafeId == null || !order.getRestaurantId().equals(cafeId)) {
-                throw new AccessDeniedException("Access denied");
+                throw new ForbiddenException("Access denied");
             }
         } else if (!"SUPER_ADMIN".equals(role)) {
-            throw new AccessDeniedException("Invalid role");
+            throw new ForbiddenException("Invalid role");
         }
         return order;
     }
@@ -527,7 +521,7 @@ public class OrderService {
             authorized = true;
         }
         if (!authorized) {
-            throw new AccessDeniedException("Access denied to tracking info");
+            throw new ForbiddenException("Access denied to tracking info");
         }
 
         String deliveryStatus = extractDeliveryStatus(order.getStatus());
@@ -549,12 +543,12 @@ public class OrderService {
 
     private Order findOrderForUpdate(UUID orderId) {
         return orderRepository.findByIdWithLock(orderId)
-                .orElseThrow(() -> new OrderNotFoundException(orderId));
+                .orElseThrow(() -> new NotFoundException("Order not found: " + orderId));
     }
 
     private Order findOrder(UUID orderId) {
         return orderRepository.findById(orderId)
-                .orElseThrow(() -> new OrderNotFoundException(orderId));
+                .orElseThrow(() -> new NotFoundException("Order not found: " + orderId));
     }
 
     private String generateOrderNumber() {
@@ -566,32 +560,19 @@ public class OrderService {
     private void validateClientOwnership(UUID orderId, UUID clientId) {
         Order order = findOrder(orderId);
         if (!order.getClientId().equals(clientId)) {
-            throw new AccessDeniedException("Order does not belong to this client");
+            throw new ForbiddenException("Order does not belong to this client");
         }
     }
 
     private void validateCafeOwnership(UUID orderId, UUID cafeId) {
         Order order = findOrder(orderId);
         if (!order.getRestaurantId().equals(cafeId)) {
-            throw new AccessDeniedException("Order does not belong to this cafe");
+            throw new ForbiddenException("Order does not belong to this cafe");
         }
         Restaurant restaurant = restaurantRepository.findById(cafeId)
-                .orElseThrow(() -> new OrderException("Restaurant not found"));
+                .orElseThrow(() -> new NotFoundException("Restaurant not found"));
         if (!restaurant.isActive() || !restaurant.isVerified()) {
-            throw new OrderException("Restaurant is deactivated or not verified. Cannot process orders.");
+            throw new ForbiddenException("Restaurant is deactivated or not verified. Cannot process orders.");
         }
-    }
-
-    public static class OrderException extends RuntimeException {
-        public OrderException(String message) { super(message); }
-        public OrderException(String message, Throwable cause) { super(message, cause); }
-    }
-
-    public static class OrderNotFoundException extends OrderException {
-        public OrderNotFoundException(UUID id) { super("Order not found: " + id); }
-    }
-
-    public static class InvalidOrderStateException extends OrderException {
-        public InvalidOrderStateException(String message) { super(message); }
     }
 }

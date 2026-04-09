@@ -1,5 +1,6 @@
 package com.fooddelivery.notifications.service;
 
+import com.fooddelivery.exceptions.NotFoundException;
 import com.fooddelivery.notifications.dto.CreateNotificationRequest;
 import com.fooddelivery.notifications.dto.NotificationResponse;
 import com.fooddelivery.notifications.entity.Notification;
@@ -53,7 +54,7 @@ public class NotificationService {
 
     public NotificationResponse markAsRead(UUID notificationId) {
         Notification notification = notificationRepository.findById(notificationId)
-                .orElseThrow(() -> new RuntimeException("Notification not found"));
+                .orElseThrow(() -> new NotFoundException("Notification not found"));
 
         notification.setRead(true);
         notification.setUpdatedAt(LocalDateTime.now());
