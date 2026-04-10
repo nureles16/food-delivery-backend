@@ -1,20 +1,21 @@
 package com.fooddelivery.orders.controller;
 
-import com.fooddelivery.orders.dto.CancelOrderRequest;
-import com.fooddelivery.orders.dto.CreateOrderRequest;
-import com.fooddelivery.orders.dto.OrderResponse;
-import com.fooddelivery.orders.dto.TrackingInfoDto;
+import com.fooddelivery.orders.dto.*;
 import com.fooddelivery.orders.entity.OrderStatus;
 import com.fooddelivery.orders.service.OrderService;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
-import jakarta.validation.constraints.Max;
-import jakarta.validation.constraints.Min;
+import org.springdoc.core.annotations.ParameterObject;
 import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
+import org.springframework.data.web.PageableDefault;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -35,25 +36,42 @@ public class OrderController {
         this.orderService = orderService;
     }
 
-    @Operation(summary = "Create order", description = "Client creates a new order")
+    @Operation(summary = "Создать заказ", description = "Клиент создаёт новый заказ")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Заказ успешно создан",
+                    content = @Content(schema = @Schema(implementation = OrderResponse.class))),
+            @ApiResponse(responseCode = "400", description = "Некорректные данные (пустые позиции, адрес вне зоны доставки и т.д.)"),
+            @ApiResponse(responseCode = "403", description = "Только клиенты могут создавать заказы"),
+            @ApiResponse(responseCode = "404", description = "Ресторан или позиция меню не найдены"),
+            @ApiResponse(responseCode = "409", description = "Блюдо недоступно или ресторан закрыт")
+    })
     @PostMapping
     @PreAuthorize("hasAuthority('CLIENT')")
     public ResponseEntity<OrderResponse> createOrder(@Valid @RequestBody CreateOrderRequest request) {
-        OrderResponse order = orderService.createOrder(request);
-        return ResponseEntity.ok(order);
+        return ResponseEntity.ok(orderService.createOrder(request));
     }
 
-    @Operation(summary = "Cancel order", description = "Client cancels order if status is PENDING or PAID")
+    @Operation(summary = "Отменить заказ (клиент)", description = "Клиент отменяет свой заказ, если статус PENDING или PAID")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Заказ отменён"),
+            @ApiResponse(responseCode = "403", description = "Нет прав на отмену этого заказа"),
+            @ApiResponse(responseCode = "404", description = "Заказ не найден"),
+            @ApiResponse(responseCode = "409", description = "Невозможно отменить заказ в текущем статусе")
+    })
     @PostMapping("/{id}/cancel")
     @PreAuthorize("hasAuthority('CLIENT')")
     public ResponseEntity<OrderResponse> cancelOrder(
-            @PathVariable UUID id,
+            @Parameter(description = "ID заказа", required = true) @PathVariable UUID id,
             @Valid @RequestBody CancelOrderRequest request) {
-        OrderResponse order = orderService.cancelOrderByClient(id, request.getReason());
-        return ResponseEntity.ok(order);
+        return ResponseEntity.ok(orderService.cancelOrderByClient(id, request.getReason()));
     }
 
-    @Operation(summary = "Get restaurant orders", description = "Cafe admin sees incoming orders with filters")
+    @Operation(summary = "Получить заказы ресторана", description = "Админ ресторана просматривает заказы с фильтрацией")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Список заказов получен"),
+            @ApiResponse(responseCode = "400", description = "Некорректные параметры фильтрации"),
+            @ApiResponse(responseCode = "403", description = "Доступ только для CAFE_ADMIN")
+    })
     @GetMapping("/cafe")
     @PreAuthorize("hasAuthority('CAFE_ADMIN')")
     public ResponseEntity<Page<OrderResponse>> getCafeOrders(
@@ -63,15 +81,18 @@ public class OrderController {
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime endDate,
             @RequestParam(required = false) BigDecimal minAmount,
             @RequestParam(required = false) BigDecimal maxAmount,
-            @RequestParam(defaultValue = "0") @Min(0) int page,
-            @RequestParam(defaultValue = "10") @Min(1) @Max(100) int size) {
-        Pageable pageable = PageRequest.of(page, size, Sort.by("createdAt").descending());
+            @ParameterObject @PageableDefault(size = 10, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable) {
         Page<OrderResponse> orders = orderService.getRestaurantOrders(status, orderNumber,
                 startDate, endDate, minAmount, maxAmount, pageable);
         return ResponseEntity.ok(orders);
     }
 
-    @Operation(summary = "Get my orders", description = "Client retrieves their order history")
+    @Operation(summary = "Получить свои заказы", description = "Клиент просматривает историю своих заказов")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Список заказов получен"),
+            @ApiResponse(responseCode = "400", description = "Некорректные параметры фильтрации"),
+            @ApiResponse(responseCode = "403", description = "Доступ только для CLIENT")
+    })
     @GetMapping("/my")
     @PreAuthorize("hasAuthority('CLIENT')")
     public ResponseEntity<Page<OrderResponse>> getMyOrders(
@@ -81,77 +102,145 @@ public class OrderController {
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime endDate,
             @RequestParam(required = false) BigDecimal minAmount,
             @RequestParam(required = false) BigDecimal maxAmount,
-            @RequestParam(defaultValue = "0") @Min(0) int page,
-            @RequestParam(defaultValue = "10") @Min(1) @Max(100) int size) {
-        Pageable pageable = PageRequest.of(page, size, Sort.by("createdAt").descending());
+            @ParameterObject @PageableDefault(size = 10, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable) {
         Page<OrderResponse> orders = orderService.getClientOrders(status, orderNumber,
                 startDate, endDate, minAmount, maxAmount, pageable);
         return ResponseEntity.ok(orders);
     }
 
-    @Operation(summary = "Confirm order", description = "Cafe confirms order")
+    @Operation(summary = "Подтвердить заказ", description = "Админ ресторана подтверждает заказ")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Заказ подтверждён"),
+            @ApiResponse(responseCode = "403", description = "Нет прав или заказ не принадлежит ресторану"),
+            @ApiResponse(responseCode = "404", description = "Заказ не найден"),
+            @ApiResponse(responseCode = "409", description = "Заказ не в статусе PAID")
+    })
     @PatchMapping("/cafe/{id}/confirm")
     @PreAuthorize("hasAuthority('CAFE_ADMIN')")
     public ResponseEntity<OrderResponse> confirmOrder(@PathVariable UUID id) {
-        OrderResponse order = orderService.confirmOrder(id);
-        return ResponseEntity.ok(order);
+        return ResponseEntity.ok(orderService.confirmOrder(id));
     }
 
-    @Operation(summary = "Mark order as cooking", description = "Cafe marks order as being cooked")
+    @Operation(summary = "Начать готовку", description = "Админ ресторана переводит заказ в статус COOKING")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Готовка начата"),
+            @ApiResponse(responseCode = "409", description = "Заказ не в статусе CONFIRMED")
+    })
     @PatchMapping("/cafe/{id}/cooking")
     @PreAuthorize("hasAuthority('CAFE_ADMIN')")
     public ResponseEntity<OrderResponse> markAsCooking(@PathVariable UUID id) {
-        OrderResponse order = orderService.markAsCooking(id);
-        return ResponseEntity.ok(order);
+        return ResponseEntity.ok(orderService.markAsCooking(id));
     }
 
-    @Operation(summary = "Mark order as ready", description = "Cafe marks order as ready for pickup")
+    @Operation(summary = "Отметить готовность", description = "Заказ готов к выдаче")
     @PatchMapping("/cafe/{id}/ready")
     @PreAuthorize("hasAuthority('CAFE_ADMIN')")
     public ResponseEntity<OrderResponse> markOrderReady(@PathVariable UUID id) {
-        OrderResponse order = orderService.markAsReady(id);
-        return ResponseEntity.ok(order);
+        return ResponseEntity.ok(orderService.markAsReady(id));
     }
 
-    @Operation(summary = "Cancel order by cafe", description = "Cafe admin cancels order with reason")
+    @Operation(summary = "Отменить заказ (ресторан)", description = "Админ ресторана отменяет заказ с указанием причины")
     @PatchMapping("/cafe/{id}/cancel")
     @PreAuthorize("hasAuthority('CAFE_ADMIN')")
     public ResponseEntity<OrderResponse> cancelOrderByCafe(
             @PathVariable UUID id,
             @Valid @RequestBody CancelOrderRequest request) {
-        OrderResponse order = orderService.cancelOrderByCafe(id, request.getReason());
-        return ResponseEntity.ok(order);
+        return ResponseEntity.ok(orderService.cancelOrderByCafe(id, request.getReason()));
     }
 
-    @Operation(summary = "Get order details", description = "Client, cafe admin or super admin can view order")
+    @Operation(summary = "Детали заказа", description = "Клиент, админ ресторана или супер-админ могут просмотреть заказ")
     @GetMapping("/{id}")
     @PreAuthorize("hasAnyAuthority('CLIENT', 'CAFE_ADMIN', 'SUPER_ADMIN')")
     public ResponseEntity<OrderResponse> getOrderById(@PathVariable UUID id) {
-        OrderResponse order = orderService.getOrderById(id);
-        return ResponseEntity.ok(order);
+        return ResponseEntity.ok(orderService.getOrderById(id));
     }
 
-    @Operation(summary = "Get delivery tracking info", description = "Client retrieves delivery status and tracking URL")
+    @Operation(summary = "Трекинг доставки", description = "Клиент получает статус доставки и URL отслеживания")
     @GetMapping("/{id}/tracking")
     @PreAuthorize("hasAuthority('CLIENT')")
     public ResponseEntity<TrackingInfoDto> getTrackingInfo(@PathVariable UUID id) {
-        TrackingInfoDto trackingInfo = orderService.getTrackingInfo(id);
-        return ResponseEntity.ok(trackingInfo);
+        return ResponseEntity.ok(orderService.getTrackingInfo(id));
     }
 
-    @Operation(summary = "Start delivery manually", description = "Cafe admin starts delivery (fallback)")
+    @Operation(summary = "Ручное начало доставки", description = "Для заказов без интеграции с Яндекс.Доставкой")
     @PatchMapping("/cafe/{id}/start-delivery")
     @PreAuthorize("hasAuthority('CAFE_ADMIN')")
     public ResponseEntity<OrderResponse> startDeliveryManually(@PathVariable UUID id) {
-        OrderResponse order = orderService.manualStartDelivery(id);
-        return ResponseEntity.ok(order);
+        return ResponseEntity.ok(orderService.manualStartDelivery(id));
     }
 
-    @Operation(summary = "Complete delivery manually", description = "Cafe admin marks order as delivered (fallback)")
+    @Operation(summary = "Ручное завершение доставки", description = "Для заказов без интеграции с Яндекс.Доставкой")
     @PatchMapping("/cafe/{id}/complete-delivery")
     @PreAuthorize("hasAuthority('CAFE_ADMIN')")
     public ResponseEntity<OrderResponse> completeDeliveryManually(@PathVariable UUID id) {
-        OrderResponse order = orderService.manualCompleteDelivery(id);
-        return ResponseEntity.ok(order);
+        return ResponseEntity.ok(orderService.manualCompleteDelivery(id));
+    }
+
+    @Operation(summary = "Назначить курьера (системно)", description = "Вызывается Яндекс.Доставкой или интеграционным модулем")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Курьер назначен"),
+            @ApiResponse(responseCode = "400", description = "Заказ не в статусе READY"),
+            @ApiResponse(responseCode = "403", description = "Доступ только для сервисных аккаунтов (внутренний вызов)")
+    })
+    @PostMapping("/{id}/assign-courier")
+    @PreAuthorize("hasAuthority('SYSTEM_INTEGRATION')") // предполагается роль для сервисных вызовов
+    public ResponseEntity<OrderResponse> assignCourier(
+            @PathVariable UUID id,
+            @RequestParam String yandexDeliveryId,
+            @RequestParam(required = false) String trackingUrl,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime estimatedAt) {
+        return ResponseEntity.ok(orderService.assignCourierSystem(id, yandexDeliveryId, trackingUrl, estimatedAt));
+    }
+
+    @Operation(summary = "Начать доставку (автоматически)", description = "Вебхук от Яндекс.Доставки")
+    @PostMapping("/{id}/start-delivery-auto")
+    @PreAuthorize("hasAuthority('SYSTEM_INTEGRATION')")
+    public ResponseEntity<OrderResponse> startDeliveryAuto(@PathVariable UUID id) {
+        return ResponseEntity.ok(orderService.startDeliveryAutomatically(id));
+    }
+
+    @Operation(summary = "Завершить доставку (автоматически)", description = "Вебхук от Яндекс.Доставки")
+    @PostMapping("/{id}/complete-delivery-auto")
+    @PreAuthorize("hasAuthority('SYSTEM_INTEGRATION')")
+    public ResponseEntity<OrderResponse> completeDeliveryAuto(@PathVariable UUID id) {
+        return ResponseEntity.ok(orderService.completeDeliveryAutomatically(id));
+    }
+
+    @Operation(summary = "Ручное назначение курьера (без интеграции)", description = "Админ ресторана назначает курьера вручную")
+    @PostMapping("/cafe/{id}/assign-courier-manual")
+    @PreAuthorize("hasAuthority('CAFE_ADMIN')")
+    public ResponseEntity<OrderResponse> manualAssignCourier(@PathVariable UUID id) {
+        return ResponseEntity.ok(orderService.manualAssignCourier(id));
+    }
+
+    @Operation(summary = "Отметить заказ как оплаченный", description = "Вызывается платёжным шлюзом")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Заказ оплачен"),
+            @ApiResponse(responseCode = "400", description = "Сумма платежа не совпадает"),
+            @ApiResponse(responseCode = "409", description = "Заказ уже оплачен или не в статусе PENDING")
+    })
+    @PostMapping("/{id}/paid")
+    @PreAuthorize("hasAuthority('SYSTEM_INTEGRATION') or hasAuthority('CLIENT')")
+    public ResponseEntity<OrderResponse> markAsPaid(
+            @PathVariable UUID id,
+            @RequestParam UUID paymentId,
+            @RequestParam BigDecimal paidAmount) {
+        return ResponseEntity.ok(orderService.markAsPaid(id, paymentId, paidAmount));
+    }
+
+    @Operation(summary = "Отметить оплату как неудавшуюся", description = "Вызывается платёжным шлюзом")
+    @PostMapping("/{id}/payment-failed")
+    @PreAuthorize("hasAuthority('SYSTEM_INTEGRATION') or hasAuthority('CLIENT')")
+    public ResponseEntity<OrderResponse> markPaymentFailed(
+            @PathVariable UUID id,
+            @RequestParam(required = false) String reason) {
+        return ResponseEntity.ok(orderService.markPaymentFailed(id, reason));
+    }
+
+    @Operation(summary = "Отметить заказ как возвращённый (refunded)", description = "Только для SUPER_ADMIN")
+    @PatchMapping("/admin/{id}/refunded")
+    @PreAuthorize("hasAuthority('SUPER_ADMIN')")
+    public ResponseEntity<OrderResponse> markAsRefunded(@PathVariable UUID id) {
+        return ResponseEntity.ok(orderService.markAsRefunded(id));
     }
 }
